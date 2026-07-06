@@ -1,0 +1,11 @@
+# robots.txt for Future Helios
+# 允许所有搜索引擎抓取
+
+User-agent: *
+Allow: /
+
+# 允许所有页面被索引
+Disallow:
+
+# 网站地图位置（部署后添加）
+Sitemap: https://future-helios.vercel.app/sitemap.xml
