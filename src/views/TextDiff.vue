@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useNotification } from '@/composables/useNotification'
 import { useClipboard } from '@/composables/useClipboard'
-import { diffText, countDiffLines, exportDiffReport } from '@/utils/textDiffer'
+import { diffText, exportDiffReport } from '@/utils/textDiffer'
 import { GitCompare, CheckCircle, Copy, Download, X } from 'lucide-vue-next'
 
 const leftText = ref('')
@@ -24,7 +24,6 @@ const handleCompare = () => {
   isComparing.value = true
 
   try {
-    // 处理忽略选项
     let processedLeft = leftText.value
     let processedRight = rightText.value
 
@@ -38,7 +37,6 @@ const handleCompare = () => {
       processedRight = processedRight.toLowerCase()
     }
 
-    // 执行对比
     const result = diffText(processedLeft, processedRight)
     diffResult.value = result
 
@@ -80,18 +78,6 @@ const handleDownloadReport = () => {
 
   success('对比报告已下载')
 }
-
-const getLineColor = (line: any): string => {
-  if (line.added) return 'bg-success/20 border-l-4 border-success'
-  if (line.removed) return 'bg-error/20 border-l-4 border-error'
-  return 'bg-bg-secondary'
-}
-
-const getTextColor = (line: any): string => {
-  if (line.added) return 'text-success'
-  if (line.removed) return 'text-error'
-  return 'text-white'
-}
 </script>
 
 <template>
@@ -99,7 +85,7 @@ const getTextColor = (line: any): string => {
     <!-- Title -->
     <div class="text-center mb-8 fade-in">
       <h1 class="text-3xl font-bold gradient-text mb-2">文本对比工具</h1>
-      <p class="text-text-secondary">并排显示差异，高亮对比结果，支持多种对比模式</p>
+      <p class="text-text-secondary">字符级差异高亮，精确标记每一处修改</p>
     </div>
 
     <!-- Options -->
@@ -181,7 +167,7 @@ const getTextColor = (line: any): string => {
           <div class="p-3 rounded-lg bg-bg-secondary text-center">
             <p class="text-text-tertiary text-xs mb-1">总计</p>
             <p class="text-white font-bold">
-              {{ diffResult.stats.added + diffResult.stats.removed + diffResult.stats.unchanged }}
+              {{ diffResult.stats.added + diffResult.stats.removed + diffResult.stats.unchanged + diffResult.stats.modified }}
             </p>
           </div>
 
@@ -195,9 +181,9 @@ const getTextColor = (line: any): string => {
             <p class="text-error font-bold">{{ diffResult.stats.removed }}</p>
           </div>
 
-          <div class="p-3 rounded-lg bg-bg-secondary text-center">
-            <p class="text-text-tertiary text-xs mb-1">未改</p>
-            <p class="text-white font-bold">{{ diffResult.stats.unchanged }}</p>
+          <div class="p-3 rounded-lg bg-warning/20 text-center">
+            <p class="text-warning text-xs mb-1">修改</p>
+            <p class="text-warning font-bold">{{ diffResult.stats.modified }}</p>
           </div>
         </div>
       </div>
@@ -207,13 +193,23 @@ const getTextColor = (line: any): string => {
         <!-- Left Diff -->
         <div class="glass rounded-xl p-6">
           <h3 class="font-semibold mb-4">原始文本（含标记）</h3>
-          <div class="space-y-1">
+          <div class="space-y-1 max-h-96 overflow-y-auto font-mono text-sm">
             <div
-              v-for="(line, index) in diffResult.leftLines"
-              :key="index"
-              :class="['p-2 rounded font-mono', getLineColor(line)]"
+              v-for="(line, index) in diffResult.lines"
+              :key="'left-' + index"
+              class="p-2 rounded min-h-[28px] leading-relaxed"
+              :class="line.hasDifference ? 'bg-bg-secondary/30' : ''"
             >
-              <pre :class="getTextColor(line)">{{ line.value }}</pre>
+              <span
+                v-for="(segment, segIndex) in line.leftSegments"
+                :key="'left-seg-' + segIndex"
+                :class="[
+                  segment.removed ? 'bg-error/30 text-error rounded px-0.5' : 'text-text-primary',
+                  'whitespace-pre-wrap'
+                ]"
+              >
+                {{ segment.value || ' ' }}
+              </span>
             </div>
           </div>
         </div>
@@ -221,13 +217,23 @@ const getTextColor = (line: any): string => {
         <!-- Right Diff -->
         <div class="glass rounded-xl p-6">
           <h3 class="font-semibold mb-4">修改文本（含标记）</h3>
-          <div class="space-y-1">
+          <div class="space-y-1 max-h-96 overflow-y-auto font-mono text-sm">
             <div
-              v-for="(line, index) in diffResult.rightLines"
-              :key="index"
-              :class="['p-2 rounded font-mono', getLineColor(line)]"
+              v-for="(line, index) in diffResult.lines"
+              :key="'right-' + index"
+              class="p-2 rounded min-h-[28px] leading-relaxed"
+              :class="line.hasDifference ? 'bg-bg-secondary/30' : ''"
             >
-              <pre :class="getTextColor(line)">{{ line.value }}</pre>
+              <span
+                v-for="(segment, segIndex) in line.rightSegments"
+                :key="'right-seg-' + segIndex"
+                :class="[
+                  segment.added ? 'bg-success/30 text-success rounded px-0.5' : 'text-text-primary',
+                  'whitespace-pre-wrap'
+                ]"
+              >
+                {{ segment.value || ' ' }}
+              </span>
             </div>
           </div>
         </div>

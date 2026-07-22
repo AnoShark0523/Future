@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useNotification } from '@/composables/useNotification'
 import { convertImages, downloadImage, cleanupImageUrls } from '@/utils/imageConverter'
 import { Image, Upload, Download, Trash2, X } from 'lucide-vue-next'
@@ -16,7 +16,7 @@ interface ConvertedFile {
 
 const files = ref<File[]>([])
 const convertedFiles = ref<ConvertedFile[]>([])
-const targetFormat = ref<'png' | 'jpg' | 'webp' | 'gif'>('png')
+const targetFormat = ref<'png' | 'jpg' | 'webp' | 'gif' | 'pdf'>('png')
 const quality = ref(85)
 const isProcessing = ref(false)
 const conversionProgress = ref(0)
@@ -52,6 +52,45 @@ const handleDropUpload = (event: DragEvent) => {
     success(`已添加 ${newFiles.length} 个文件`)
   }
 }
+
+// 处理粘贴事件（支持粘贴图片）
+const handlePaste = (e: ClipboardEvent) => {
+  const items = e.clipboardData?.items
+  if (!items) return
+  
+  const pastedFiles: File[] = []
+  
+  // 遍历剪贴板内容
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    
+    // 检查是否是图片
+    if (item.type.indexOf('image') !== -1) {
+      const file = item.getAsFile()
+      if (file) {
+        pastedFiles.push(file)
+      }
+    }
+  }
+  
+  if (pastedFiles.length > 0) {
+    if (files.value.length + pastedFiles.length > 10) {
+      error('最多上传10个文件')
+      return
+    }
+    files.value.push(...pastedFiles)
+    success(`已粘贴 ${pastedFiles.length} 张图片`)
+  }
+}
+
+// 添加粘贴事件监听
+onMounted(() => {
+  document.addEventListener('paste', handlePaste)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('paste', handlePaste)
+})
 
 const removeFile = (index: number) => {
   files.value.splice(index, 1)
@@ -123,7 +162,7 @@ const formatSize = (bytes: number): string => {
   <div class="container mx-auto px-6 py-8 max-w-5xl">
     <div class="text-center mb-8 fade-in">
       <h1 class="text-3xl font-bold gradient-text mb-2">图片格式转换器</h1>
-      <p class="text-text-secondary">支持PNG/JPG/WEBP/GIF格式互转，批量处理和质量压缩</p>
+      <p class="text-text-secondary">支持PNG/JPG/WEBP/GIF/PDF格式转换，批量处理和质量压缩</p>
     </div>
 
     <div class="grid md:grid-cols-2 gap-6">
@@ -138,7 +177,8 @@ const formatSize = (bytes: number): string => {
           class="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center mb-6 hover:border-primary transition-colors cursor-pointer"
         >
           <Upload class="w-12 h-12 mx-auto mb-4 text-primary" />
-          <p class="text-text-secondary mb-4">拖拽图片到这里或点击上传</p>
+          <p class="text-text-secondary mb-2">拖拽图片到这里或点击上传</p>
+          <p class="text-xs text-text-tertiary mb-4">💡 支持 Ctrl+V 直接粘贴图片</p>
           <input
             type="file"
             accept="image/*"
@@ -197,11 +237,15 @@ const formatSize = (bytes: number): string => {
             <option value="jpg">JPG - 有损压缩，适合照片</option>
             <option value="webp">WEBP - 新格式，体积小</option>
             <option value="gif">GIF - 支持动画</option>
+            <option value="pdf">PDF - 多图片合并（推荐批量转换）</option>
           </select>
+          <p v-if="targetFormat === 'pdf'" class="text-xs text-primary mt-2">
+            ✓ PDF格式会将所有图片合并到一个PDF文件中，每张图片占一页
+          </p>
         </div>
 
         <!-- Quality Slider -->
-        <div v-if="targetFormat === 'jpg' || targetFormat === 'webp'" class="mb-6">
+        <div v-if="(targetFormat === 'jpg' || targetFormat === 'webp') && targetFormat !== 'pdf'" class="mb-6">
           <label class="font-semibold mb-2 block">压缩质量: {{ quality }}%</label>
           <input
             v-model="quality"
@@ -277,12 +321,15 @@ const formatSize = (bytes: number): string => {
               </div>
 
               <!-- Preview Image -->
-              <div class="mt-2">
+              <div v-if="file.newFormat !== 'pdf'" class="mt-2">
                 <img
                   :src="file.url"
                   :alt="file.name"
                   class="w-full max-w-xs rounded-lg bg-white/5"
                 />
+              </div>
+              <div v-else class="mt-2 p-3 rounded-lg bg-primary/20 border border-primary/30">
+                <p class="text-primary text-sm">📄 PDF文件已生成，点击下载按钮查看</p>
               </div>
             </div>
           </div>
@@ -293,7 +340,7 @@ const formatSize = (bytes: number): string => {
             class="w-full px-4 py-2 rounded-lg bg-success hover:bg-success/80 text-white transition-colors flex items-center justify-center gap-2"
           >
             <Download class="w-5 h-5" />
-            <span>下载全部</span>
+            <span>{{ convertedFiles[0]?.newFormat === 'pdf' ? '下载PDF文件' : '下载全部' }}</span>
           </button>
         </div>
 

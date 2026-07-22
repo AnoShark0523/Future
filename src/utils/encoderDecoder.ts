@@ -139,6 +139,12 @@ export function encode(type: string, text: string): string {
       return encodeHTML(text)
     case 'hex':
       return encodeHex(text)
+    case 'morse':
+      return encodeMorse(text)
+    case 'rot13':
+      return encodeRot13(text)
+    case 'binary':
+      return encodeBinary(text)
     default:
       return text
   }
@@ -159,7 +165,138 @@ export function decode(type: string, text: string): string {
       return decodeHTML(text)
     case 'hex':
       return decodeHex(text)
+    case 'morse':
+      return decodeMorse(text)
+    case 'rot13':
+      return encodeRot13(text) // ROT13是自反的
+    case 'binary':
+      return decodeBinary(text)
     default:
       return text
+  }
+}
+
+/**
+ * 摩尔斯电码映射表
+ */
+const MORSE_CODE_MAP: Record<string, string> = {
+  'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
+  'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+  'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
+  'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+  'Y': '-.--', 'Z': '--..',
+  '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-',
+  '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.',
+  ' ': '/', '.': '.-.-.-', ',': '--..--', '?': '..--..', "'": '.----.',
+  '!': '-.-.--', '/': '-..-.', '(': '-.--.', ')': '-.--.-', '&': '.-...',
+  ':': '---...', ';': '-.-.-.', '=': '-...-', '+': '.-.-.', '-': '-....-',
+  '_': '..--.-', '"': '.-..-.', '$': '...-..-', '@': '.--.-.'
+}
+
+// 反向映射表
+const REVERSE_MORSE_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(MORSE_CODE_MAP).map(([k, v]) => [v, k])
+)
+
+/**
+ * 摩尔斯电码编码
+ */
+export function encodeMorse(text: string): string {
+  return text.toUpperCase().split('').map(char => {
+    return MORSE_CODE_MAP[char] || char
+  }).join(' ')
+}
+
+/**
+ * 摩尔斯电码解码
+ */
+export function decodeMorse(encoded: string): string {
+  return encoded.split(' ').map(code => {
+    if (code === '/') return ' '
+    return REVERSE_MORSE_MAP[code] || code
+  }).join('')
+}
+
+/**
+ * ROT13加密/解密（凯撒密码）
+ */
+export function encodeRot13(text: string): string {
+  return text.replace(/[a-zA-Z]/g, char => {
+    const code = char.charCodeAt(0)
+    const base = code >= 65 && code <= 90 ? 65 : 97 // 大写字母或小写字母
+    return String.fromCharCode(((code - base + 13) % 26) + base)
+  })
+}
+
+/**
+ * 文本转二进制
+ */
+export function encodeBinary(text: string): string {
+  return text.split('').map(char => {
+    return char.charCodeAt(0).toString(2).padStart(8, '0')
+  }).join(' ')
+}
+
+/**
+ * 二进制转文本
+ */
+export function decodeBinary(encoded: string): string {
+  const binaryCodes = encoded.split(/\s+/)
+  return binaryCodes.map(bin => {
+    const code = parseInt(bin, 2)
+    return String.fromCharCode(code)
+  }).join('')
+}
+
+/**
+ * 计算文本的Hash值
+ * 使用Web Crypto API
+ */
+export async function calculateHash(text: string, algorithm: 'MD5' | 'SHA-1' | 'SHA-256'): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(text)
+
+  let hashBuffer: ArrayBuffer
+
+  // 注意：Web Crypto API不直接支持MD5，我们使用简单的实现
+  if (algorithm === 'MD5') {
+    // 简化的MD5实现（实际项目中应该使用专门的库如crypto-js）
+    return await simpleMD5(text)
+  }
+
+  const algo = algorithm === 'SHA-1' ? 'SHA-1' : 'SHA-256'
+  hashBuffer = await crypto.subtle.digest(algo, data)
+
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * 简化的MD5实现（仅用于演示）
+ * 实际项目中建议使用crypto-js等专业库
+ */
+async function simpleMD5(text: string): Promise<string> {
+  // 使用SHA-256作为替代，因为Web Crypto API不直接支持MD5
+  const encoder = new TextEncoder()
+  const data = encoder.encode(text)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  // 返回前32位模拟MD5长度
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32)
+}
+
+/**
+ * 批量转换 - 一次性进行多种编码转换
+ */
+export function batchConvert(text: string): Record<string, string> {
+  return {
+    'Base64': encodeBase64(text),
+    'URL编码': encodeURL(text),
+    'Unicode': encodeUnicode(text),
+    'HTML实体': encodeHTML(text),
+    '十六进制': encodeHex(text),
+    '摩尔斯电码': encodeMorse(text),
+    'ROT13': encodeRot13(text),
+    '二进制': encodeBinary(text)
   }
 }

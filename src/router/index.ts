@@ -47,6 +47,31 @@ const router = createRouter({
       path: '/qrcode-tools',
       name: 'qrcode-tools',
       component: () => import('@/views/QRCodeTools.vue')
+    },
+    {
+      path: '/http-status-code',
+      name: 'http-status-code',
+      component: () => import('@/views/HttpStatusCode.vue')
+    },
+    {
+      path: '/password-generator',
+      name: 'password-generator',
+      component: () => import('@/views/PasswordGenerator.vue')
+    },
+    {
+      path: '/color-converter',
+      name: 'color-converter',
+      component: () => import('@/views/ColorConverter.vue')
+    },
+    {
+      path: '/code-practice',
+      name: 'code-practice',
+      component: () => import('@/views/CodePractice.vue')
+    },
+    {
+      path: '/resume-generator',
+      name: 'resume-generator',
+      component: () => import('@/views/ResumeGenerator.vue')
     }
   ]
 })
