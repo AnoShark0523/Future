@@ -78,6 +78,14 @@ const basicItems = computed(() => {
   if (p.value.birthDate) items.push({ label: '出生', value: p.value.birthDate })
   if (p.value.ethnicity) items.push({ label: '民族', value: p.value.ethnicity })
   if (p.value.politicalStatus) items.push({ label: '政治面貌', value: p.value.politicalStatus })
+  // 学历信息整合到个人信息区域
+  const edu = d.value.education[0]
+  if (edu) {
+    if (edu.degree) items.push({ label: '学历', value: edu.degree })
+    if (edu.school) items.push({ label: '学校', value: edu.school })
+    if (edu.major) items.push({ label: '专业', value: edu.major })
+    if (edu.endDate) items.push({ label: '毕业', value: edu.endDate })
+  }
   if (p.value.englishLevel) items.push({ label: '英语', value: p.value.englishLevel })
   return items
 })
@@ -262,7 +270,6 @@ const skillTags = computed(() => {
     <div v-if="s.layout === 'sidebar-left'" class="layout-sidebar-left content-layer">
       <aside class="sidebar">
         <div class="sidebar-brand">PERSONAL RESUME</div>
-        <div class="sidebar-job" v-if="p.title">{{ p.title }}</div>
 
         <div class="photo-wrap sidebar-photo">
           <img v-if="p.photo" :src="p.photo" class="photo-img" />
@@ -317,19 +324,9 @@ const skillTags = computed(() => {
             <span v-if="lang.proficiency">：{{ lang.proficiency }}</span>
           </div>
         </div>
-
-        <div class="sidebar-section" v-if="d.selfEvaluation">
-          <div class="section-title sidebar-section-title">自我评价</div>
-          <p class="sidebar-summary">{{ d.selfEvaluation }}</p>
-        </div>
       </aside>
 
       <main class="main-right">
-        <header class="main-header" v-if="p.name || p.title">
-          <div v-if="p.name" class="main-name">{{ p.name }}</div>
-          <div v-if="p.title" class="main-title-text">{{ p.title }}</div>
-        </header>
-
         <section v-if="p.summary" class="section">
           <div class="section-title"><span class="section-icon">👤</span>个人简介</div>
           <p class="section-body">{{ p.summary }}</p>
@@ -350,23 +347,16 @@ const skillTags = computed(() => {
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
             <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span></span>
+              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></span>
               <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
             </div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
           </div>
         </section>
 
-        <section v-if="d.education.length" class="section">
-          <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-          <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-            <div class="entry-meta">
-              <span class="entry-position">{{ edu.school }}</span>
-              <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-            </div>
-            <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
-            <p v-if="edu.description" class="entry-desc">{{ edu.description }}</p>
-          </div>
+        <section v-if="d.selfEvaluation" class="section">
+          <div class="section-title"><span class="section-icon">📝</span>自我评价</div>
+          <p class="section-body">{{ d.selfEvaluation }}</p>
         </section>
       </main>
     </div>
@@ -407,23 +397,13 @@ const skillTags = computed(() => {
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
             <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span></span>
+              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></span>
               <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
             </div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
           </div>
         </section>
 
-        <section v-if="d.education.length" class="section">
-          <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-          <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-            <div class="entry-meta">
-              <span class="entry-position">{{ edu.school }}</span>
-              <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-            </div>
-            <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
-          </div>
-        </section>
       </main>
 
       <aside class="sidebar sidebar-right">
@@ -524,17 +504,6 @@ const skillTags = computed(() => {
           </div>
 
           <div class="col">
-            <section v-if="d.education.length" class="section">
-              <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-              <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-                <div class="entry-meta">
-                  <span class="entry-position">{{ edu.school }}</span>
-                  <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-                </div>
-                <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
-              </div>
-            </section>
-
             <section v-if="d.skills.length" class="section">
               <div class="section-title"><span class="section-icon">⚡</span>专业技能</div>
               <div v-for="cat in d.skills" :key="cat.id" class="skill-block">
@@ -603,21 +572,10 @@ const skillTags = computed(() => {
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
             <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span></span>
+              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></span>
               <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
             </div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
-          </div>
-        </section>
-
-        <section v-if="d.education.length" class="section">
-          <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-          <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-            <div class="entry-meta">
-              <span class="entry-position">{{ edu.school }}</span>
-              <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-            </div>
-            <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
           </div>
         </section>
 
@@ -741,21 +699,10 @@ const skillTags = computed(() => {
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
             <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span></span>
+              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></span>
               <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
             </div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
-          </div>
-        </section>
-
-        <section v-if="d.education.length" class="section">
-          <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-          <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-            <div class="entry-meta">
-              <span class="entry-position">{{ edu.school }}</span>
-              <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-            </div>
-            <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
           </div>
         </section>
 
@@ -857,16 +804,6 @@ const skillTags = computed(() => {
             </div>
           </section>
 
-          <section v-if="d.education.length" class="section">
-            <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-            <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-              <div class="entry-meta">
-                <span class="entry-position">{{ edu.school }}</span>
-                <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-              </div>
-              <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
-            </div>
-          </section>
         </div>
       </main>
     </div>
@@ -884,6 +821,9 @@ const skillTags = computed(() => {
           <div class="contact-bar" v-if="contactItems.length">
             <span v-for="(item, idx) in contactItems" :key="idx" class="contact-item">{{ item.icon }} {{ item.text }}</span>
           </div>
+          <div class="info-strip" v-if="basicItems.length">
+            <span v-for="item in basicItems" :key="item.label" class="info-strip-item">{{ item.label }}：{{ item.value }}</span>
+          </div>
         </div>
       </header>
 
@@ -893,16 +833,9 @@ const skillTags = computed(() => {
           <p class="section-body">{{ p.summary }}</p>
         </section>
 
-        <section v-if="d.selfEvaluation" class="card-section">
+        <section v-if="d.selfEvaluation" class="card-section full">
           <div class="section-title"><span class="section-icon">📝</span>自我评价</div>
           <p class="section-body">{{ d.selfEvaluation }}</p>
-        </section>
-
-        <section v-if="basicItems.length" class="card-section">
-          <div class="section-title"><span class="section-icon">📋</span>基本信息</div>
-          <div class="info-list">
-            <div v-for="item in basicItems" :key="item.label">{{ item.label }}：{{ item.value }}</div>
-          </div>
         </section>
 
         <section v-if="d.experience.length" class="card-section">
@@ -914,17 +847,6 @@ const skillTags = computed(() => {
             </div>
             <div class="entry-sub">{{ exp.company }}</div>
             <p v-if="exp.description" class="entry-desc">{{ exp.description }}</p>
-          </div>
-        </section>
-
-        <section v-if="d.education.length" class="card-section">
-          <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-          <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-            <div class="entry-meta">
-              <span class="entry-position">{{ edu.school }}</span>
-              <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-            </div>
-            <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
           </div>
         </section>
 
@@ -1002,17 +924,9 @@ const skillTags = computed(() => {
         <section v-if="d.projects.length" class="section">
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="elegant-row">
-            <div class="elegant-row-title">{{ proj.name }}</div>
+            <div class="elegant-row-title">{{ proj.name }}<span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></div>
             <div class="elegant-row-sub">{{ proj.role }} · {{ formatDateRange(proj.startDate, proj.endDate) }}</div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
-          </div>
-        </section>
-
-        <section v-if="d.education.length" class="section">
-          <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-          <div v-for="edu in d.education" :key="edu.id" class="elegant-row">
-            <div class="elegant-row-title">{{ edu.school }}</div>
-            <div class="elegant-row-sub">{{ edu.degree }} · {{ edu.major }} · {{ formatDateRange(edu.startDate, edu.endDate) }}</div>
           </div>
         </section>
 
@@ -1108,17 +1022,6 @@ const skillTags = computed(() => {
             </div>
           </section>
 
-          <section v-if="d.education.length" class="section">
-            <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-            <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-              <div class="entry-meta">
-                <span class="entry-position">{{ edu.school }}</span>
-                <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-              </div>
-              <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
-            </div>
-          </section>
-
           <section v-if="d.certifications.length" class="section">
             <div class="section-title"><span class="section-icon">🏆</span>获奖证书</div>
             <div v-for="cert in d.certifications" :key="cert.id" class="cert-row">
@@ -1209,16 +1112,6 @@ const skillTags = computed(() => {
               </div>
             </section>
 
-            <section v-if="d.education.length" class="section">
-              <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-              <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-                <div class="entry-meta">
-                  <span class="entry-position">{{ edu.school }}</span>
-                  <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-                </div>
-                <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
-              </div>
-            </section>
           </div>
         </div>
       </main>
@@ -1348,16 +1241,6 @@ const skillTags = computed(() => {
               </div>
             </section>
 
-            <section v-if="d.education.length" class="section">
-              <div class="section-title"><span class="section-icon">🎓</span>教育背景</div>
-              <div v-for="edu in d.education" :key="edu.id" class="entry-row">
-                <div class="entry-meta">
-                  <span class="entry-position">{{ edu.school }}</span>
-                  <span class="entry-date">{{ formatDateRange(edu.startDate, edu.endDate) }}</span>
-                </div>
-                <div class="entry-sub">{{ edu.degree }}<span v-if="edu.major"> · {{ edu.major }}</span></div>
-              </div>
-            </section>
           </div>
         </div>
       </main>
@@ -1385,11 +1268,13 @@ const skillTags = computed(() => {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
   overflow: hidden;
   font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
-  font-size: 13.5px;
-  line-height: 1.7;
+  font-size: 12.5px;
+  line-height: 1.55;
   position: relative;
   box-sizing: border-box;
   display: block;
+  width: 210mm;
+  min-height: 297mm;
 }
 
 .content-layer {
@@ -1489,7 +1374,7 @@ const skillTags = computed(() => {
 .section-title {
   font-size: 15px;
   font-weight: 700;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   color: var(--primary);
   position: relative;
   display: flex;
@@ -1536,8 +1421,8 @@ const skillTags = computed(() => {
 /* 虚线分割 */
 .has-dashed-divider .section {
   border-bottom: 1px dashed var(--primary);
-  padding-bottom: 10px;
-  margin-bottom: 14px;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
 }
 .has-dashed-divider .section:last-child {
   border-bottom: none;
@@ -1628,7 +1513,7 @@ const skillTags = computed(() => {
 .sidebar {
   width: 35%;
   flex: 0 0 35%;
-  padding: 22px 18px;
+  padding: 16px 14px;
   background: var(--primary);
   color: var(--light);
   position: relative;
@@ -1640,34 +1525,34 @@ const skillTags = computed(() => {
   letter-spacing: 3px;
   font-weight: 700;
   opacity: 0.7;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .sidebar-job {
   font-size: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   opacity: 0.9;
 }
 .sidebar-photo {
-  width: 110px;
-  height: 130px;
-  margin: 0 auto 16px;
+  width: 100px;
+  height: 120px;
+  margin: 0 auto 12px;
   border: 3px solid rgba(255, 255, 255, 0.3);
 }
 .sidebar-name-wrap {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 .sidebar-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
 }
 .sidebar-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   opacity: 0.85;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .sidebar-section {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 .sidebar-section-title {
   font-size: 13px;
@@ -1700,8 +1585,8 @@ const skillTags = computed(() => {
   clip-path: none;
 }
 .sidebar-list {
-  font-size: 12px;
-  line-height: 1.9;
+  font-size: 11.5px;
+  line-height: 1.65;
 }
 .sidebar-row {
   display: flex;
@@ -1762,23 +1647,23 @@ const skillTags = computed(() => {
 
 .main-right {
   flex: 1;
-  padding: 24px 22px;
+  padding: 16px 20px;
   background: var(--bg);
 }
 .main-header {
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 2px solid var(--primary);
 }
 .main-name {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--primary);
 }
 .main-title-text {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--secondary);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 /* ==================== 布局：右侧栏 ==================== */
@@ -1788,21 +1673,21 @@ const skillTags = computed(() => {
 }
 .main-left {
   flex: 1;
-  padding: 26px 24px;
+  padding: 18px 20px;
   background: var(--bg);
 }
 .main-header-centered {
   text-align: center;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 .sidebar-right {
   width: 32%;
-  padding: 26px 18px;
+  padding: 18px 14px;
 }
 .right-photo {
-  width: 90px;
-  height: 110px;
-  margin: 0 auto 18px;
+  width: 85px;
+  height: 105px;
+  margin: 0 auto 14px;
   border: 3px solid rgba(255, 255, 255, 0.3);
 }
 
@@ -1812,32 +1697,32 @@ const skillTags = computed(() => {
   background: var(--bg);
 }
 .banner-header {
-  padding: 26px 30px;
+  padding: 18px 24px;
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   color: var(--light);
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
 }
 .banner-photo {
-  width: 95px;
-  height: 115px;
+  width: 85px;
+  height: 105px;
   border: 3px solid rgba(255, 255, 255, 0.35);
 }
 .banner-info {
   flex: 1;
 }
 .banner-name {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
 }
 .banner-title-text {
-  font-size: 14px;
+  font-size: 13px;
   opacity: 0.9;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .banner-main {
-  padding: 22px 28px;
+  padding: 16px 22px;
 }
 
 /* ==================== 布局：居中横幅 ==================== */
@@ -1846,7 +1731,7 @@ const skillTags = computed(() => {
   background: var(--bg);
 }
 .center-header {
-  padding: 28px 30px 18px;
+  padding: 4px 24px 6px;
   text-align: center;
   position: relative;
   background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -1857,31 +1742,32 @@ const skillTags = computed(() => {
   color: var(--light);
 }
 .center-photo {
-  width: 100px;
-  height: 100px;
-  margin: 0 auto 14px;
-  border: 4px solid rgba(255, 255, 255, 0.4);
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 3px;
+  border: 3px solid rgba(255, 255, 255, 0.4);
 }
 .center-name {
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 700;
+  line-height: 1.2;
 }
 .center-title-text {
-  font-size: 15px;
+  font-size: 12px;
   opacity: 0.9;
-  margin-top: 4px;
+  margin-top: 1px;
 }
 .contact-strip {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px 18px;
-  margin-top: 14px;
-  padding: 8px 16px;
+  gap: 2px 10px;
+  margin-top: 4px;
+  padding: 3px 10px;
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 24px;
-  font-size: 12px;
+  border-radius: 20px;
+  font-size: 10px;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
@@ -1890,48 +1776,48 @@ const skillTags = computed(() => {
   white-space: nowrap;
 }
 .center-main {
-  padding: 22px 35px;
+  padding: 8px 28px;
 }
 
 /* ==================== 布局：时间轴 ==================== */
 .layout-timeline {
   min-height: 297mm;
-  padding: 26px 32px;
+  padding: 18px 24px;
   background: var(--bg);
 }
 .timeline-header {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding-bottom: 16px;
+  gap: 16px;
+  padding-bottom: 12px;
   border-bottom: 3px solid var(--primary);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .timeline-photo {
-  width: 85px;
-  height: 105px;
+  width: 80px;
+  height: 100px;
   border: 3px solid var(--primary);
 }
 .timeline-head-info {
   flex: 1;
 }
 .timeline-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--primary);
 }
 .timeline-title-text {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--secondary);
-  margin-top: 3px;
+  margin-top: 2px;
 }
 .timeline-list {
   position: relative;
-  padding-left: 22px;
+  padding-left: 20px;
   border-left: 2px solid var(--primary);
 }
 .timeline-item {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   position: relative;
 }
 .timeline-dot {
@@ -1954,95 +1840,96 @@ const skillTags = computed(() => {
 /* ==================== 布局：简洁居中 ==================== */
 .layout-clean-center {
   min-height: 297mm;
-  padding: 48px 55px;
+  padding: 14px 36px;
   background: var(--bg);
 }
 .clean-header {
   text-align: center;
-  margin-bottom: 26px;
+  margin-bottom: 10px;
 }
 .clean-photo {
-  width: 100px;
-  height: 120px;
-  margin: 0 auto 12px;
+  width: 80px;
+  height: 100px;
+  margin: 0 auto 6px;
   border: 2px solid var(--primary);
   border-radius: 4px;
   overflow: hidden;
 }
 .has-circle-photo .clean-photo {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
 }
 .clean-name {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
 }
 .clean-title-text {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--secondary);
-  margin-top: 5px;
+  margin-top: 3px;
 }
 .clean-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: #888;
-  margin-top: 10px;
+  margin-top: 6px;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px 14px;
+  gap: 4px 12px;
 }
 .clean-divider {
   border: none;
   border-top: 2px solid var(--primary);
-  margin-top: 16px;
+  margin-top: 8px;
 }
 .clean-main {
-  padding: 0 10px;
+  padding: 0 8px;
 }
 
 /* ==================== 布局：双栏分栏 ==================== */
 .layout-two-column {
   min-height: 297mm;
-  padding: 26px 28px;
+  padding: 18px 22px;
   background: var(--bg);
 }
 .two-col-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 14px;
+  padding-bottom: 10px;
   border-bottom: 3px solid var(--primary);
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .two-col-brand {
   position: relative;
 }
 .brand-name {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 900;
   color: var(--primary);
   line-height: 1;
 }
 .brand-sub {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--secondary);
-  margin-top: 6px;
+  margin-top: 4px;
 }
 .two-col-photo {
-  width: 90px;
-  height: 110px;
+  width: 80px;
+  height: 100px;
   border: 3px solid var(--accent);
 }
 .layout-two-column .contact-strip {
   background: rgba(0, 0, 0, 0.04);
   border: 1px solid rgba(0, 0, 0, 0.08);
   color: var(--text);
-  margin: 0 0 16px;
+  margin: 0 0 12px;
 }
 .two-col-main {
   display: flex;
-  gap: 26px;
+  gap: 20px;
+  align-items: flex-start;
 }
 .two-col-main .col {
   flex: 1;
@@ -2052,40 +1939,42 @@ const skillTags = computed(() => {
 /* ==================== 布局：卡片模块 ==================== */
 .layout-card-style {
   min-height: 297mm;
-  padding: 24px 22px;
+  padding: 10px 14px;
   background: var(--bg);
 }
 .card-header {
-  padding: 16px 20px;
+  padding: 8px 12px;
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   color: var(--light);
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 .card-photo {
-  width: 80px;
-  height: 100px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  width: 58px;
+  height: 72px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 .card-head-info {
   flex: 1;
+  min-width: 0;
 }
 .card-name {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
+  line-height: 1.2;
 }
 .card-title-text {
-  font-size: 13px;
+  font-size: 11px;
   opacity: 0.9;
-  margin-top: 3px;
+  margin-top: 1px;
 }
 .card-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 10px;
 }
 .card-grid.four-grid {
   grid-template-columns: repeat(4, 1fr);
@@ -2096,7 +1985,7 @@ const skillTags = computed(() => {
 .card-section {
   background: #fff;
   border-radius: 8px;
-  padding: 14px;
+  padding: 10px 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
@@ -2104,52 +1993,52 @@ const skillTags = computed(() => {
 /* ==================== 布局：优雅极简 ==================== */
 .layout-elegant-minimal {
   min-height: 297mm;
-  padding: 50px 55px;
+  padding: 14px 36px;
   background: var(--bg);
 }
 .elegant-header {
-  margin-bottom: 28px;
+  margin-bottom: 10px;
   text-align: center;
 }
 .elegant-photo {
-  width: 100px;
-  height: 120px;
-  margin: 0 auto 12px;
+  width: 70px;
+  height: 85px;
+  margin: 0 auto 6px;
   border: 2px solid var(--primary);
   border-radius: 4px;
   overflow: hidden;
 }
 .has-circle-photo .elegant-photo {
-  width: 100px;
-  height: 100px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
 }
 .elegant-name {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 300;
   letter-spacing: 3px;
 }
 .elegant-title-text {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--secondary);
-  margin-top: 6px;
+  margin-top: 3px;
   letter-spacing: 1px;
 }
 .elegant-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: #999;
-  margin-top: 12px;
-  line-height: 1.9;
+  margin-top: 5px;
+  line-height: 1.6;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px 16px;
+  gap: 3px 12px;
 }
 .elegant-main {
-  padding: 0 10px;
+  padding: 0 8px;
 }
 .elegant-row {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 .elegant-row-title {
   font-size: 14px;
@@ -2175,7 +2064,7 @@ const skillTags = computed(() => {
   background: var(--bg);
 }
 .split-header {
-  padding: 24px 30px;
+  padding: 16px 24px;
   background: var(--primary);
   color: var(--light);
   display: flex;
@@ -2186,32 +2075,32 @@ const skillTags = computed(() => {
   flex: 1;
 }
 .split-name {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
 }
 .split-title-text {
-  font-size: 14px;
+  font-size: 13px;
   opacity: 0.9;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .split-photo {
-  width: 85px;
-  height: 105px;
+  width: 80px;
+  height: 100px;
   border: 3px solid rgba(255, 255, 255, 0.3);
 }
 .split-body {
   display: flex;
-  min-height: calc(297mm - 110px);
+  min-height: calc(297mm - 90px);
 }
 .split-left {
   width: 40%;
-  padding: 22px 24px;
+  padding: 16px 18px;
   border-right: 2px solid var(--accent);
   background: rgba(0, 0, 0, 0.02);
 }
 .split-right {
   flex: 1;
-  padding: 22px 24px;
+  padding: 16px 18px;
 }
 
 /* ==================== 布局：深色主题 ==================== */
@@ -2219,40 +2108,40 @@ const skillTags = computed(() => {
   min-height: 297mm;
   background: var(--bg);
   color: var(--text);
-  padding: 24px 26px;
+  padding: 16px 20px;
 }
 .dark-header {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding-bottom: 18px;
+  gap: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 .dark-photo {
-  width: 90px;
-  height: 110px;
+  width: 80px;
+  height: 100px;
   border: 3px solid var(--accent);
 }
 .dark-head-info {
   flex: 1;
 }
 .dark-name {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--accent);
 }
 .dark-title-text {
-  font-size: 13px;
+  font-size: 12px;
   opacity: 0.85;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .dark-meta {
-  font-size: 11px;
-  margin-top: 8px;
+  font-size: 10.5px;
+  margin-top: 6px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: 4px 12px;
   opacity: 0.75;
 }
 .dark-main {
@@ -2293,41 +2182,41 @@ const skillTags = computed(() => {
 /* ==================== 布局：数据图表 ==================== */
 .layout-dashboard {
   min-height: 297mm;
-  padding: 24px 26px;
+  padding: 16px 20px;
   background: var(--bg);
 }
 .dashboard-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 18px;
+  padding-bottom: 12px;
   border-bottom: 3px solid var(--primary);
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 .dashboard-head-info {
   flex: 1;
 }
 .dashboard-name {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--primary);
 }
 .dashboard-title-text {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--secondary);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .dashboard-meta {
-  font-size: 11px;
+  font-size: 10.5px;
   color: #666;
-  margin-top: 8px;
+  margin-top: 6px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: 4px 12px;
 }
 .dashboard-photo {
-  width: 85px;
-  height: 105px;
+  width: 80px;
+  height: 100px;
   border: 3px solid var(--accent);
 }
 .dashboard-main {
@@ -2336,13 +2225,13 @@ const skillTags = computed(() => {
 .dashboard-charts {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 .chart-card {
   background: #fff;
   border-radius: 8px;
-  padding: 14px;
+  padding: 10px 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
@@ -2479,11 +2368,11 @@ const skillTags = computed(() => {
 
 /* ==================== 通用内容样式 ==================== */
 .section {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 .section-body {
-  font-size: 13px;
-  line-height: 1.8;
+  font-size: 12px;
+  line-height: 1.6;
   color: #555;
 }
 .section-body.center { text-align: center; }
@@ -2504,7 +2393,7 @@ const skillTags = computed(() => {
 .edu-row,
 .proj-row,
 .exp-row {
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 .entry-meta {
   display: flex;
@@ -2513,42 +2402,53 @@ const skillTags = computed(() => {
   gap: 10px;
 }
 .entry-position {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
 }
 .entry-sub {
-  font-size: 12px;
+  font-size: 11.5px;
   color: #666;
   margin-top: 2px;
 }
 .entry-date {
-  font-size: 11px;
+  font-size: 10.5px;
   color: #999;
   white-space: nowrap;
 }
 .entry-desc {
-  font-size: 12.5px;
-  line-height: 1.7;
+  font-size: 11.5px;
+  line-height: 1.55;
   color: #555;
-  margin-top: 4px;
+  margin-top: 3px;
   white-space: pre-line;
 }
 
+.entry-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.entry-link:hover {
+  text-decoration: underline;
+}
+
 .skill-block {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   word-break: break-word;
   overflow-wrap: break-word;
 }
 .skill-cat-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--primary);
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 .skill-tags {
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: 11px;
+  line-height: 1.55;
   color: #555;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -2571,11 +2471,22 @@ const skillTags = computed(() => {
 .contact-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
-  margin-top: 10px;
-  font-size: 11px;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: 10.5px;
 }
 .contact-item {
+  white-space: nowrap;
+}
+.info-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.9);
+}
+.info-strip-item {
   white-space: nowrap;
 }
 
@@ -2827,9 +2738,15 @@ const skillTags = computed(() => {
 /* ================================================================ */
 
 /* ---- t01 深灰斜切商务侧栏 ---- */
+.theme-gray-slanted-business .layout-sidebar-left {
+  min-height: 297mm;
+}
 .theme-gray-slanted-business .sidebar {
   background: linear-gradient(180deg, #323741 0%, #232830 100%);
   position: relative;
+  width: 32%;
+  flex: 0 0 32%;
+  padding: 18px 14px;
 }
 .theme-gray-slanted-business .sidebar::after {
   content: '';
@@ -2839,19 +2756,136 @@ const skillTags = computed(() => {
   background: linear-gradient(180deg, var(--accent), transparent);
 }
 .theme-gray-slanted-business .main-right {
-  border-top: 4px solid var(--accent);
-}
-.theme-gray-slanted-business .main-header {
-  border-bottom: 2px solid #e0e0e0;
-  padding-bottom: 10px;
+  flex: 1;
+  padding: 16px 22px 16px;
+  border-top: none;
+  background: #ffffff;
 }
 .theme-gray-slanted-business .sidebar-brand {
   color: var(--accent);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 3px;
-  border-bottom: 1px solid rgba(255,255,255,0.15);
-  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.theme-gray-slanted-business .sidebar-photo {
+  width: 100px;
+  height: 124px;
+  margin: 0 auto 12px;
+  border: 2px solid rgba(35,127,201,0.5);
+  border-radius: 2px;
+}
+.theme-gray-slanted-business .sidebar-name-wrap {
+  text-align: center;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.theme-gray-slanted-business .sidebar-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.theme-gray-slanted-business .sidebar-subtitle {
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 3px;
+  font-weight: 500;
+  opacity: 1;
+}
+.theme-gray-slanted-business .sidebar-section {
+  margin-bottom: 14px;
+}
+.theme-gray-slanted-business .sidebar-section-title {
+  color: #ffffff;
+  background: rgba(35, 127, 201, 0.85);
+  padding: 3px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  clip-path: polygon(0 0, 92% 0, 100% 100%, 0 100%);
+  display: inline-block;
+  margin-bottom: 8px;
+  border-bottom: none;
+  letter-spacing: 1px;
+}
+.theme-gray-slanted-business .sidebar-list {
+  font-size: 11.5px;
+  line-height: 1.8;
+}
+.theme-gray-slanted-business .sidebar-row {
+  margin-bottom: 2px;
+}
+.theme-gray-slanted-business .skill-block {
+  margin-bottom: 6px;
+}
+.theme-gray-slanted-business .skill-cat-name {
+  font-size: 11.5px;
+  color: rgba(255,255,255,0.95) !important;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.theme-gray-slanted-business .skill-tags {
+  font-size: 11px;
+  color: rgba(255,255,255,0.75) !important;
+  line-height: 1.6;
+}
+.theme-gray-slanted-business .sidebar-cert {
+  font-size: 11.5px;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 2px;
+}
+.theme-gray-slanted-business .section {
   margin-bottom: 12px;
+}
+.theme-gray-slanted-business.has-slanted-header .section-title {
+  color: #ffffff;
+  background: linear-gradient(110deg, var(--accent) 82%, transparent 82%);
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  letter-spacing: 1px;
+}
+.theme-gray-slanted-business.has-slanted-header .section-title .section-icon {
+  color: #ffffff;
+}
+.theme-gray-slanted-business .entry-row {
+  margin-bottom: 8px;
+}
+.theme-gray-slanted-business .entry-position {
+  font-size: 13px;
+  font-weight: 600;
+  color: #232741;
+}
+.theme-gray-slanted-business .entry-date {
+  font-size: 11.5px;
+  color: #888;
+}
+.theme-gray-slanted-business .entry-sub {
+  font-size: 12px;
+  color: #555;
+  margin-top: 2px;
+}
+.theme-gray-slanted-business .entry-desc {
+  font-size: 12px;
+  color: #444;
+  line-height: 1.65;
+  margin-top: 4px;
+}
+.theme-gray-slanted-business .entry-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 11.5px;
+  word-break: break-all;
+}
+.theme-gray-slanted-business .entry-link:hover {
+  text-decoration: underline;
+}
+.theme-gray-slanted-business .section-body {
+  font-size: 12px;
+  color: #444;
+  line-height: 1.7;
 }
 
 /* ---- t02 旷野风景通栏文艺 ---- */
@@ -2912,51 +2946,6 @@ const skillTags = computed(() => {
   color: #4a4a4a;
 }
 
-/* ---- t03 红黑环形营销双栏 ---- */
-.theme-red-ring-marketing .col:first-child {
-  background: var(--primary);
-  color: var(--light);
-  padding: 24px 20px;
-  position: relative;
-}
-.theme-red-ring-marketing .col:first-child::after {
-  content: '';
-  position: absolute;
-  top: 30px; right: -10px;
-  border-top: 10px solid transparent;
-  border-bottom: 10px solid transparent;
-  border-left: 10px solid var(--primary);
-}
-.theme-red-ring-marketing .col:last-child {
-  padding: 24px 20px;
-}
-.theme-red-ring-marketing .section-title {
-  background: var(--primary);
-  color: var(--light);
-  padding: 4px 14px;
-  border-radius: 0 16px 0 16px;
-  display: inline-block;
-}
-
-/* ---- t04 红色几何财会正式 ---- */
-.theme-red-geometric-finance .bg-geometric {
-  background:
-    linear-gradient(135deg, var(--primary) 0%, var(--secondary) 40%, transparent 40%),
-    linear-gradient(225deg, var(--accent)33 20%, transparent 20%);
-  background-size: 100% 200px, 80px 80px;
-  opacity: 1;
-}
-.theme-red-geometric-finance .banner-header {
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  padding: 30px 40px 20px;
-  clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
-}
-.theme-red-geometric-finance .city-silhouette {
-  bottom: 0; height: 40px;
-  color: var(--primary);
-  opacity: 0.15;
-}
-
 /* ---- t05 彩色时间轴技术岗 ---- */
 .theme-macaron-timeline-tech .timeline-axis {
   border-left: 3px solid var(--accent);
@@ -3001,68 +2990,6 @@ const skillTags = computed(() => {
 .theme-dark-code-pm .main-name {
   color: var(--accent);
   font-family: 'Consolas', monospace;
-}
-
-/* ---- t07 数据分析图表简历 ---- */
-.theme-data-viz-dashboard .chart-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-.theme-data-viz-dashboard .chart-card {
-  background: rgba(39,174,96,0.06);
-  border: 1px solid rgba(39,174,96,0.2);
-  border-radius: 8px;
-  padding: 14px;
-}
-.theme-data-viz-dashboard .section-title {
-  color: var(--primary);
-  border-left: 4px solid var(--accent);
-}
-
-/* ---- t08 四宫格撞色欧美 ---- */
-.theme-four-block-clash .card-grid > div:nth-child(1) {
-  background: var(--primary);
-  color: var(--light);
-}
-.theme-four-block-clash .card-grid > div:nth-child(2) {
-  background: var(--secondary);
-  color: var(--light);
-}
-.theme-four-block-clash .card-grid > div:nth-child(3) {
-  background: var(--accent);
-  color: var(--light);
-}
-.theme-four-block-clash .card-grid > div:nth-child(4) {
-  background: #fffbe6;
-  color: var(--text);
-}
-.theme-four-block-clash .card-grid > div {
-  padding: 16px;
-  border-radius: 8px;
-}
-.theme-four-block-clash .bottom-contact-bar {
-  background: var(--primary);
-}
-
-/* ---- t09 渐变红三卡片应届 ---- */
-.theme-red-gradient-cards {
-  background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
-}
-.theme-red-gradient-cards .content-layer {
-  padding: 24px;
-}
-.theme-red-gradient-cards .center-header {
-  background: rgba(255,255,255,0.95);
-  border-radius: 16px;
-  padding: 20px 28px;
-  margin-bottom: 16px;
-}
-.theme-red-gradient-cards .card-grid > div {
-  background: rgba(255,255,255,0.95);
-  border-radius: 12px;
-  padding: 16px;
 }
 
 /* ---- t10 森林摄影轻奢文艺 ---- */
@@ -3180,24 +3107,6 @@ const skillTags = computed(() => {
   padding-bottom: 14px;
 }
 
-/* ---- t13 深色时间轴市场双栏 ---- */
-.theme-dark-timeline-marketing .col:first-child {
-  background: var(--primary);
-  color: var(--light);
-  padding: 24px 20px;
-  clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%);
-}
-.theme-dark-timeline-marketing .col:last-child {
-  padding: 24px 20px;
-}
-.theme-dark-timeline-marketing .timeline-axis {
-  border-left: 2px solid var(--primary);
-}
-.theme-dark-timeline-marketing .timeline-node {
-  background: var(--primary);
-  border: 2px solid var(--bg);
-}
-
 /* ---- t14 薄荷绿文艺文案 ---- */
 .theme-mint-green-literary .center-header {
   background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -3217,29 +3126,6 @@ const skillTags = computed(() => {
   margin-right: 6px;
   font-size: 8px;
   vertical-align: middle;
-}
-
-/* ---- t15 蓝横幅环形欧美营销 ---- */
-.theme-blue-banner-ring-eu .banner-header {
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  padding: 28px 36px;
-  position: relative;
-}
-.theme-blue-banner-ring-eu .banner-header::after {
-  content: 'RESUME';
-  position: absolute;
-  top: 8px; right: 24px;
-  font-size: 10px;
-  letter-spacing: 4px;
-  color: rgba(255,255,255,0.4);
-}
-.theme-blue-banner-ring-eu .skill-rings-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-.theme-blue-banner-ring-eu .watermark {
-  color: var(--primary);
 }
 
 /* ---- t16 极简线条销售时间轴 ---- */
@@ -3456,47 +3342,6 @@ const skillTags = computed(() => {
   letter-spacing: 1px;
 }
 
-/* ---- t24 浅蓝区块产品交互 ---- */
-/* t24 浅蓝区块：右侧内容区用深色文字，左侧彩色栏用浅色文字 */
-.theme-light-blue-product .col:last-child,
-.theme-light-blue-product .main-right {
-  color: #1a2a3a;
-}
-.theme-light-blue-product .entry-row:nth-child(even) {
-  background: rgba(232,242,252,0.6);
-  border-radius: 6px;
-  padding: 10px 14px;
-}
-.theme-light-blue-product .entry-desc,
-.theme-light-blue-product .entry-sub,
-.theme-light-blue-product .skill-tags,
-.theme-light-blue-product .cert-row,
-.theme-light-blue-product .lang-row,
-.theme-light-blue-product .section-body,
-.theme-light-blue-product .info-list {
-  color: #2c3e50;
-}
-.theme-light-blue-product .entry-row:nth-child(even) .entry-desc,
-.theme-light-blue-product .entry-row:nth-child(even) .entry-sub {
-  color: #1a3a5c;
-}
-.theme-light-blue-product .entry-row:nth-child(even) .entry-date {
-  color: #3a5a8c;
-}
-.theme-light-blue-product .section-title {
-  color: var(--primary);
-  font-weight: 700;
-  border-bottom: 2px solid var(--primary);
-}
-.theme-light-blue-product .skill-cat-name {
-  color: var(--primary);
-}
-.theme-light-blue-product .entry-desc::before {
-  content: '→';
-  color: var(--primary);
-  margin-right: 4px;
-}
-
 /* ---- t25 藏蓝欧式设计双栏 ---- */
 .theme-navy-euro-design .sidebar {
   background: var(--primary);
@@ -3540,31 +3385,6 @@ const skillTags = computed(() => {
   border-bottom: 1px solid rgba(232,194,88,0.3);
 }
 
-/* ---- t27 黑白撞色模块化 ---- */
-.theme-bw-clash-modular .col:first-child {
-  background: #0a0a0a;
-  color: #f1c40f;
-  padding: 24px 20px;
-}
-.theme-bw-clash-modular .col:last-child {
-  background: #ffffff;
-  color: #1a1a1a;
-  padding: 24px 20px;
-}
-.theme-bw-clash-modular .col:first-child .section-title {
-  color: var(--accent);
-  border-bottom: 1px solid var(--accent);
-}
-.theme-bw-clash-modular .col:last-child .section-title {
-  border-bottom: 2px solid #1a1a1a;
-}
-.theme-bw-clash-modular .entry-row {
-  background: rgba(241,196,15,0.08);
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 8px;
-}
-
 /* ---- t28 深灰鎏金竖排商务 ---- */
 .theme-dark-gold-vertical-biz {
   background: var(--primary) !important;
@@ -3588,54 +3408,6 @@ const skillTags = computed(() => {
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   padding: 0 24px;
-}
-
-/* ---- t29 牛仔布四宫格创意 ---- */
-.theme-denim-four-grid .bg-layer {
-  background:
-    repeating-linear-gradient(45deg, var(--primary), var(--primary) 2px, var(--secondary) 2px, var(--secondary) 4px);
-  opacity: 0.3;
-}
-.theme-denim-four-grid .center-header {
-  background: rgba(245,230,200,0.95);
-  border-radius: 8px;
-  padding: 16px 24px;
-  border: 2px solid var(--accent);
-  position: relative;
-}
-.theme-denim-four-grid .center-header::before {
-  content: '';
-  position: absolute;
-  top: -6px; left: 20px;
-  width: 60px; height: 12px;
-  background: var(--accent);
-  border-radius: 2px;
-  transform: rotate(-3deg);
-}
-.theme-denim-four-grid .card-grid > div {
-  background: rgba(245,230,200,0.9);
-  border-radius: 8px;
-  border: 1px solid var(--accent);
-  padding: 14px;
-}
-
-/* ---- t30 莫兰迪低饱和优雅 ---- */
-.theme-morandi-elegant .col:first-child {
-  background: var(--primary);
-  color: var(--light);
-  padding: 24px 20px;
-}
-.theme-morandi-elegant .col:last-child {
-  padding: 24px 20px;
-}
-.theme-morandi-elegant .section-title {
-  color: var(--primary);
-  font-weight: 300;
-  letter-spacing: 2px;
-  border-bottom: 1px solid var(--primary);
-}
-.theme-morandi-elegant .sidebar-photo {
-  border: 1px solid var(--accent);
 }
 
 /* ---- t31 科技流光蓝绿侧栏 ---- */
@@ -3790,34 +3562,6 @@ const skillTags = computed(() => {
   line-height: 1.8;
 }
 
-/* ---- t35 电影海报大字报 ---- */
-.theme-movie-poster-big .banner-header {
-  background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 60%, transparent 100%);
-  padding: 40px 30px 30px;
-  position: relative;
-}
-.theme-movie-poster-big .banner-header::after {
-  content: 'A FILM BY';
-  position: absolute;
-  bottom: 8px; left: 30px;
-  font-size: 10px;
-  letter-spacing: 6px;
-  color: rgba(255,255,255,0.5);
-}
-.theme-movie-poster-big .center-name {
-  font-size: 48px;
-  font-weight: 900;
-  letter-spacing: -2px;
-  line-height: 1;
-  color: var(--light);
-}
-.theme-movie-poster-big .section-title {
-  text-transform: uppercase;
-  letter-spacing: 4px;
-  font-size: 11px;
-  color: var(--accent);
-}
-
 /* ---- t36 复古打字机信纸 ---- */
 .theme-typewriter-letter-retro .bg-layer {
   background: rgba(245,240,224,1);
@@ -3909,6 +3653,20 @@ const skillTags = computed(() => {
 .theme-pop-art-clash .card-grid > div:nth-child(even) {
   background: rgba(58,134,255,0.1);
   border: 2px solid var(--secondary);
+}
+.theme-pop-art-clash .card-header {
+  padding: 6px 12px;
+  margin-bottom: 6px;
+  gap: 10px;
+}
+.theme-pop-art-clash .card-photo {
+  width: 55px;
+  height: 68px;
+}
+.theme-pop-art-clash .info-strip {
+  font-size: 9.5px;
+  gap: 2px 8px;
+  color: rgba(255,255,255,0.85);
 }
 
 /* ---- t39 北欧几何插画 ---- */
@@ -4220,6 +3978,20 @@ const skillTags = computed(() => {
   border-left: 4px solid var(--accent);
   padding-left: 10px;
 }
+.theme-mosaic-collage-art .card-header {
+  padding: 6px 12px;
+  margin-bottom: 6px;
+  gap: 10px;
+}
+.theme-mosaic-collage-art .card-photo {
+  width: 55px;
+  height: 68px;
+}
+.theme-mosaic-collage-art .info-strip {
+  font-size: 9.5px;
+  gap: 2px 8px;
+  color: rgba(255,255,255,0.85);
+}
 
 /* ---- t48 水彩晕染梦幻 ---- */
 .theme-watercolor-dream .bg-layer {
@@ -4455,92 +4227,6 @@ const skillTags = computed(() => {
 .layout-two-column .col:last-child {
   overflow-wrap: break-word;
 }
-/* 当栏背景是主色时（通过主题CSS设置的 background: var(--primary)），文字改浅色 */
-.theme-red-ring-marketing .col:first-child .section-title,
-.theme-bw-clash-modular .col:first-child .section-title,
-.theme-dark-timeline-marketing .col:first-child .section-title,
-.theme-morandi-elegant .col:first-child .section-title {
-  color: var(--light) !important;
-  border-left-color: var(--accent);
-}
-.theme-red-ring-marketing .col:first-child .entry-position,
-.theme-bw-clash-modular .col:first-child .entry-position,
-.theme-dark-timeline-marketing .col:first-child .entry-position,
-.theme-morandi-elegant .col:first-child .entry-position {
-  color: var(--light);
-}
-.theme-red-ring-marketing .col:first-child .entry-desc,
-.theme-bw-clash-modular .col:first-child .entry-desc,
-.theme-dark-timeline-marketing .col:first-child .entry-desc,
-.theme-morandi-elegant .col:first-child .entry-desc {
-  color: rgba(255,255,255,0.8);
-}
-.theme-red-ring-marketing .col:first-child .entry-date,
-.theme-bw-clash-modular .col:first-child .entry-date,
-.theme-dark-timeline-marketing .col:first-child .entry-date,
-.theme-morandi-elegant .col:first-child .entry-date {
-  color: rgba(255,255,255,0.6);
-}
-.theme-red-ring-marketing .col:first-child .skill-cat-name,
-.theme-bw-clash-modular .col:first-child .skill-cat-name,
-.theme-dark-timeline-marketing .col:first-child .skill-cat-name,
-.theme-morandi-elegant .col:first-child .skill-cat-name {
-  color: var(--light);
-}
-.theme-red-ring-marketing .col:first-child .skill-tags,
-.theme-bw-clash-modular .col:first-child .skill-tags,
-.theme-dark-timeline-marketing .col:first-child .skill-tags,
-.theme-morandi-elegant .col:first-child .skill-tags {
-  color: rgba(255,255,255,0.85);
-}
-.theme-red-ring-marketing .col:first-child .cert-row,
-.theme-bw-clash-modular .col:first-child .cert-row,
-.theme-dark-timeline-marketing .col:first-child .cert-row,
-.theme-morandi-elegant .col:first-child .cert-row,
-.theme-red-ring-marketing .col:first-child .lang-row,
-.theme-bw-clash-modular .col:first-child .lang-row,
-.theme-dark-timeline-marketing .col:first-child .lang-row,
-.theme-morandi-elegant .col:first-child .lang-row {
-  color: rgba(255,255,255,0.8);
-}
-.theme-red-ring-marketing .col:first-child .info-list,
-.theme-bw-clash-modular .col:first-child .info-list,
-.theme-dark-timeline-marketing .col:first-child .info-list,
-.theme-morandi-elegant .col:first-child .info-list {
-  color: rgba(255,255,255,0.85);
-}
-.theme-red-ring-marketing .col:first-child .section-body,
-.theme-bw-clash-modular .col:first-child .section-body,
-.theme-dark-timeline-marketing .col:first-child .section-body,
-.theme-morandi-elegant .col:first-child .section-body {
-  color: rgba(255,255,255,0.85) !important;
-}
-
-/* t24 浅蓝区块：双栏左侧无彩色背景，使用深色文字 */
-.theme-light-blue-product .col:first-child {
-  color: #1a2a3a;
-}
-.theme-light-blue-product .col:first-child .section-title {
-  color: var(--primary) !important;
-  border-bottom: 2px solid var(--primary);
-}
-.theme-light-blue-product .col:first-child .entry-position,
-.theme-light-blue-product .col:first-child .entry-sub,
-.theme-light-blue-product .col:first-child .skill-cat-name,
-.theme-light-blue-product .col:first-child .cert-row strong,
-.theme-light-blue-product .col:first-child .lang-row strong {
-  color: #1a3a5c;
-}
-.theme-light-blue-product .col:first-child .entry-desc,
-.theme-light-blue-product .col:first-child .entry-date,
-.theme-light-blue-product .col:first-child .skill-tags,
-.theme-light-blue-product .col:first-child .cert-row,
-.theme-light-blue-product .col:first-child .lang-row,
-.theme-light-blue-product .col:first-child .info-list,
-.theme-light-blue-product .col:first-child .section-body {
-  color: #2c3e50 !important;
-}
-
 /* ============ dark-theme 布局文字颜色修复 ============ */
 .layout-dark-theme .entry-desc {
   color: rgba(255,255,255,0.7);
@@ -4570,47 +4256,30 @@ const skillTags = computed(() => {
 
 /* ============ 通用：深色头部背景的文字用浅色 ============ */
 /* 仅对头部背景是深色/彩色的模板生效，排除白色头部的模板 */
-.theme-red-geometric-finance .banner-header,
 .theme-dark-code-pm .center-header,
 .theme-mint-green-literary .center-header,
-.theme-blue-banner-ring-eu .banner-header,
 .theme-dark-symmetric-ops .center-header,
 .theme-dark-gold-vertical-biz .center-header,
-.theme-movie-poster-big .banner-header,
 .theme-chinese-red-festive .center-header,
 .theme-cyberpunk-neon-purple .center-header,
 .theme-black-gold-luxury .center-header,
 .theme-aurora-gradient-north .center-header {
   color: var(--light);
 }
-.theme-red-geometric-finance .banner-header .center-name,
-.theme-red-geometric-finance .banner-header .main-name,
-.theme-red-geometric-finance .center-header .center-name,
 .theme-dark-code-pm .center-header .center-name,
 .theme-mint-green-literary .center-header .center-name,
-.theme-blue-banner-ring-eu .banner-header .center-name,
-.theme-blue-banner-ring-eu .banner-header .main-name,
 .theme-dark-symmetric-ops .center-header .center-name,
 .theme-dark-gold-vertical-biz .center-header .center-name,
-.theme-movie-poster-big .banner-header .center-name,
-.theme-movie-poster-big .banner-header .main-name,
 .theme-chinese-red-festive .center-header .center-name,
 .theme-cyberpunk-neon-purple .center-header .center-name,
 .theme-black-gold-luxury .center-header .center-name,
 .theme-aurora-gradient-north .center-header .center-name {
   color: var(--light);
 }
-.theme-red-geometric-finance .banner-header .center-title-text,
-.theme-red-geometric-finance .banner-header .main-title-text,
-.theme-red-geometric-finance .center-header .center-title-text,
 .theme-dark-code-pm .center-header .center-title-text,
 .theme-mint-green-literary .center-header .center-title-text,
-.theme-blue-banner-ring-eu .banner-header .center-title-text,
-.theme-blue-banner-ring-eu .banner-header .main-title-text,
 .theme-dark-symmetric-ops .center-header .center-title-text,
 .theme-dark-gold-vertical-biz .center-header .center-title-text,
-.theme-movie-poster-big .banner-header .center-title-text,
-.theme-movie-poster-big .banner-header .main-title-text,
 .theme-chinese-red-festive .center-header .center-title-text,
 .theme-cyberpunk-neon-purple .center-header .center-title-text,
 .theme-black-gold-luxury .center-header .center-title-text,
@@ -4619,74 +4288,6 @@ const skillTags = computed(() => {
 }
 
 /* ============ 深色背景模板（非dark-theme布局）的文字颜色修复 ============ */
-/* t29 牛仔布：card-style 布局，深蓝背景，牛皮纸卡片 */
-.theme-denim-four-grid .center-header {
-  color: #2c3e50;
-}
-.theme-denim-four-grid .center-header .center-title {
-  color: #1a2a3a;
-}
-.theme-denim-four-grid .card-grid > div {
-  color: #2c3e50;
-}
-.theme-denim-four-grid .section-title {
-  color: #2c3e50;
-  border-left-color: var(--accent);
-}
-.theme-denim-four-grid .entry-desc {
-  color: #3a4a5a;
-}
-.theme-denim-four-grid .entry-date {
-  color: #5a6a7a;
-}
-.theme-denim-four-grid .entry-sub {
-  color: #4a5a6a;
-}
-.theme-denim-four-grid .entry-position {
-  color: #1a2a3a;
-}
-.theme-denim-four-grid .skill-cat-name {
-  color: #2c3e50;
-}
-.theme-denim-four-grid .skill-tags {
-  color: #3a4a5a;
-}
-.theme-denim-four-grid .cert-row,
-.theme-denim-four-grid .lang-row {
-  color: #3a4a5a;
-}
-
-/* t35 电影海报：banner-top 布局，深色背景 */
-.theme-movie-poster-big .section-title {
-  color: var(--accent);
-  border-left-color: var(--accent);
-}
-.theme-movie-poster-big .entry-desc {
-  color: rgba(224,224,224,0.7);
-}
-.theme-movie-poster-big .entry-date {
-  color: rgba(224,224,224,0.5);
-}
-.theme-movie-poster-big .entry-sub {
-  color: rgba(224,224,224,0.6);
-}
-.theme-movie-poster-big .entry-position {
-  color: var(--text);
-}
-.theme-movie-poster-big .skill-cat-name {
-  color: var(--accent);
-}
-.theme-movie-poster-big .skill-tags {
-  color: rgba(224,224,224,0.8);
-}
-.theme-movie-poster-big .cert-row,
-.theme-movie-poster-big .lang-row {
-  color: rgba(224,224,224,0.7);
-}
-.theme-movie-poster-big .section-body {
-  color: rgba(224,224,224,0.8);
-}
-
 /* t43 极光：banner-center 布局，深色背景 */
 .theme-aurora-gradient-north .section-title {
   color: var(--accent);
@@ -4720,88 +4321,47 @@ const skillTags = computed(() => {
 
 /* ========== 打印样式 ========== */
 @media print {
-  /* 方法：只打印简历纸张，其他内容隐藏且不占空间 */
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
+  @page {
+    size: A4;
+    margin: 0;
   }
 
-  /* 隐藏非打印内容（不占空间） */
-  body > *:not(.resume-paper):not(#app),
-  #app > *:not(.resume-paper),
-  .container,
-  .editor-panel,
-  .preview-panel,
-  .template-gallery,
-  .notification-container,
-  .modal-overlay,
-  .glass,
-  button,
-  input,
-  select,
-  textarea,
-  .btn,
-  .form-group,
-  .sidebar,
-  nav,
-  header,
-  footer {
-    display: none !important;
-  }
-
-  /* 确保简历纸张及其父元素可见 */
-  #app,
-  #app > * {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    background: white !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  /* 简历纸张占满整个打印页面 */
   .resume-paper {
-    position: fixed !important;
+    transform: none !important;
+    position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 210mm !important;
-    height: auto !important;
     min-height: 297mm !important;
-    max-height: none !important;
-    transform: none !important;
-    transform-origin: top left !important;
+    height: auto !important;
     box-shadow: none !important;
     margin: 0 !important;
     padding: 12mm !important;
-    background: white !important;
     overflow: visible !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    display: block !important;
-    /* 确保在最上层 */
     z-index: 999999 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    page-break-after: always;
   }
 
-  /* 确保所有内容可见 */
   .resume-paper * {
-    opacity: 1 !important;
-    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    overflow: visible !important;
   }
 
-  /* 背景装饰适度显示 */
   .bg-layer,
   .bg-photo,
   .bg-pattern {
     opacity: 0.5 !important;
   }
 
-  /* 页面设置：A4 纸张 */
-  @page {
-    size: A4;
-    margin: 0;
+  .section,
+  .entry-row,
+  .sidebar-section,
+  .elegant-row,
+  .card-section {
+    page-break-inside: avoid;
   }
 }
 </style>

@@ -80,8 +80,88 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 // ==================== 辅助函数 ====================
 
 /**
+ * 将文本按常见键值对模式拆分（专门处理 PDF 表格文本串行问题）
+ * 例如："毕业院校：哈尔滨理工大学 电话：17656363927" 拆分为
+ * { '毕业院校': '哈尔滨理工大学', '电话': '17656363927' }
+ */
+function parseKeyValuePairs(text: string): Map<string, string> {
+  const result = new Map<string, string>()
+  
+  // 预定义所有可能的关键字段
+  const allFields = [
+    '姓名', '性 别', '性别', '出 生 年 月', '出生年月', '出生日期', '生日', '出 生',
+    '毕 业 院 校', '毕业院校', '学校', '院校',
+    '专 业', '专业',
+    '学 历', '学历', '学位',
+    '毕 业 时 间', '毕业时间', '毕业年月', '毕业日期',
+    '电 话', '电话', '手 机', '手机', '联系电话', '联系方式',
+    '邮 箱', '邮箱', '电子邮箱',
+    '民 族', '民族',
+    '政 治 面 貌', '政治面貌',
+    '英 语 水 平', '英语水平', '外语水平',
+    '现 居', '现居', '现居地', '居住地', '地址', '所在地',
+    'GitHub', '个人主页', '网站', '主页', 'LinkedIn'
+  ]
+  
+  // 把 "关 键 词" 合并成 "关键词" 再处理
+  let normalizedText = text.replace(/[ \t\u3000]{2,}/g, ' ')
+  
+  // 清理每个字之间的空格 "姓 名" → "姓名"
+  allFields.forEach(field => {
+    const spacedField = field.split('').join('[ \\t\\u3000]*')
+    const re = new RegExp(spacedField, 'g')
+    normalizedText = normalizedText.replace(re, field.replace(/[ \t\u3000]/g, ''))
+  })
+  
+  // 按 "关键词：" 或 "关键词:" 切分
+  // 找到每个已知字段的位置
+  const positions: Array<{ key: string; start: number; end: number }> = []
+  
+  for (const field of allFields) {
+    const cleanField = field.replace(/[ \t\u3000]/g, '')
+    const re = new RegExp(`(^|\\s)${escapeRegExp(cleanField)}(\\s*[:：]|\\s)`, 'g')
+    let match
+    while ((match = re.exec(normalizedText)) !== null) {
+      positions.push({
+        key: cleanField,
+        start: match.index + match[1].length,
+        end: match.index + match[0].length
+      })
+    }
+  }
+  
+  // 按位置排序
+  positions.sort((a, b) => a.start - b.start)
+  
+  // 去重：同一关键词多次出现取第一次
+  const seenKeys = new Set<string>()
+  const uniquePositions = positions.filter(p => {
+    if (seenKeys.has(p.key)) return false
+    seenKeys.add(p.key)
+    return true
+  })
+  
+  // 提取每个字段的值（从当前字段结束到下一个字段开始）
+  for (let i = 0; i < uniquePositions.length; i++) {
+    const current = uniquePositions[i]
+    const next = uniquePositions[i + 1]
+    const valueStart = current.end
+    const valueEnd = next ? next.start : normalizedText.length
+    let value = normalizedText.substring(valueStart, valueEnd).trim()
+    // 去掉开头的冒号
+    value = value.replace(/^[:：]+/, '').trim()
+    if (value) {
+      result.set(current.key, value)
+    }
+  }
+  
+  return result
+}
+
+/**
  * 通用键值对提取
  * 支持 "关键词：值"、"关键词: 值"、"关键词 值"、"关键词　值"（全角空格）
+ * 也支持 "关 键 词：值" 这种每个字之间有空格的格式
  */
 function findValue(text: string, keywords: string[]): string | null {
   for (const kw of keywords) {
@@ -97,6 +177,12 @@ function findValue(text: string, keywords: string[]): string | null {
       // 确保值不是另一个关键词
       if (!isAnotherKeyword(m2[1].trim())) return m2[1].trim()
     }
+    
+    // 处理每个字之间有空格的格式，如 "姓  名：张文阳"
+    const spacedKw = kw.split('').join('\\s*')
+    const spacedRe = new RegExp(`${spacedKw}\\s*[:：]\\s*([^\\n\\r|,，；;]+)`, 'i')
+    const m3 = text.match(spacedRe)
+    if (m3 && m3[1].trim()) return m3[1].trim()
   }
   return null
 }
@@ -185,10 +271,14 @@ function extractSection(text: string, keywords: string[]): string | null {
 
 /**
  * 将日期字符串标准化为 YYYY-MM 格式
+ * 支持：2005年07月、2005-07、2005.07、2005 年 07 月、2005 / 07 等
  */
 function normalizeDate(s: string): string {
   let d = s.trim()
-  d = d.replace(/年/g, '-').replace(/月/g, '').replace(/日/g, '').replace(/\./g, '-')
+  // 先把所有非数字字符统一成连字符
+  d = d.replace(/[\s年/]/g, '-').replace(/[月日]/g, '').replace(/\./g, '-')
+  // 清理连续连字符和首尾连字符
+  d = d.replace(/-+/g, '-').replace(/^-|-$/g, '')
   // 处理 "1994-05" 或 "1994-5"
   const m = d.match(/(\d{4})-(\d{1,2})/)
   if (m) {
@@ -229,35 +319,75 @@ export function parseResumeFromText(text: string): ResumeData {
     languages: []
   }
 
+  // ============ 预解析基本信息区域（处理 PDF 表格文本串行问题） ============
+  const basicInfoSection = extractSection(cleanText, ['基本信息', '基本资料', '个人信息', 'Basic Information', 'Personal Information'])
+  const basicPairs = basicInfoSection ? parseKeyValuePairs(basicInfoSection) : new Map<string, string>()
+
   // ============ 提取姓名 ============
-  const nameVal = findValue(cleanText, ['姓名', 'Name', 'Full Name'])
+  // 先尝试从基本信息区域精确提取（处理表格串行问题）
+  let nameVal = basicPairs.get('姓名')
+  
+  // 姓名关键词列表（支持多种格式）
+  const nameKeywords = ['姓名', '姓  名', '姓 名', '名 字', '名字', 'Name', 'Full Name', '姓名：', '姓　名']
+  if (!nameVal) nameVal = findValue(cleanText, nameKeywords)
+  
   if (nameVal) {
     // 清理可能的多余信息
     data.personal.name = nameVal.split(/\s+/)[0].replace(/[（(].*$/, '')
   } else {
-    // 没有明确标记，取前几行中最像姓名的
-    for (let i = 0; i < Math.min(lines.length, 8); i++) {
+    // 没有明确标记，尝试多种方式识别
+    
+    // 方式1：取前几行中最像姓名的
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
       const line = lines[i]
+      
       // 跳过纯数字、符号、过长行
       if (/^[\d\s\W|\/]+$/.test(line)) continue
       if (line.length > 20) continue
       if (/[:：]/.test(line)) continue
+      
       // 跳过包含明显简历关键词的行
-      if (/简历|RESUME|CV|Curriculum/i.test(line)) continue
+      if (/简历|RESUME|CV|Curriculum|个人|联系方式|教育|工作|项目|技能|自我|评价|简介|性别|出生|电话|手机|邮箱/i.test(line)) continue
+      
       // 纯中文姓名 2-5 字
       if (/^[\u4e00-\u9fa5]{2,5}$/.test(line)) {
         data.personal.name = line
         break
       }
+      
       // 中文姓名+空格+其他
       if (/^[\u4e00-\u9fa5]{2,5}\s/.test(line)) {
         data.personal.name = line.split(/\s+/)[0]
         break
       }
-      // 英文名
+      
+      // 英文名 (如 "John Smith")
       if (/^[A-Z][a-z]+\s[A-Z][a-z]+$/.test(line)) {
         data.personal.name = line
         break
+      }
+      
+      // 中文姓名后跟英文（如 "张三 San Zhang"）
+      if (/^[\u4e00-\u9fa5]{2,4}\s+[A-Za-z]/.test(line)) {
+        data.personal.name = line.split(/\s+/)[0]
+        break
+      }
+    }
+    
+    // 方式2：如果没有找到，尝试在整个文本中搜索常见姓名格式
+    if (!data.personal.name) {
+      // 匹配 "姓 名：张三" 这种中间有空格的格式
+      const spacedNameMatch = cleanText.match(/姓\s*名\s*[:：]?\s*([\u4e00-\u9fa5]{2,5})/)
+      if (spacedNameMatch) {
+        data.personal.name = spacedNameMatch[1]
+      }
+    }
+    
+    // 方式3：尝试匹配 "XXX 简历" 格式
+    if (!data.personal.name) {
+      const resumeNameMatch = cleanText.match(/^([\u4e00-\u9fa5]{2,5})\s*(?:的?\s*简历|个人简历)/m)
+      if (resumeNameMatch) {
+        data.personal.name = resumeNameMatch[1]
       }
     }
   }
@@ -281,8 +411,9 @@ export function parseResumeFromText(text: string): ResumeData {
   }
 
   // ============ 提取手机号 ============
-  // 先用关键词找
-  const phoneVal = findValue(cleanText, ['手机', '电话', '联系方式', '联系电话', 'Phone', 'Tel', 'Mobile', 'Cell'])
+  // 先用基本信息区域精确提取
+  let phoneVal = basicPairs.get('手机') || basicPairs.get('电话') || basicPairs.get('联系方式') || basicPairs.get('联系电话')
+  if (!phoneVal) phoneVal = findValue(cleanText, ['手机', '电话', '联系方式', '联系电话', 'Phone', 'Tel', 'Mobile', 'Cell'])
   if (phoneVal) {
     data.personal.phone = phoneVal.replace(/[^\d\-\+]/g, '')
   } else {
@@ -292,7 +423,8 @@ export function parseResumeFromText(text: string): ResumeData {
   }
 
   // ============ 提取邮箱 ============
-  const emailVal = findValue(cleanText, ['邮箱', '电子邮箱', 'E-mail', 'Email', 'E-mail地址'])
+  let emailVal = basicPairs.get('邮箱') || basicPairs.get('电子邮箱')
+  if (!emailVal) emailVal = findValue(cleanText, ['邮箱', '电子邮箱', 'E-mail', 'Email', 'E-mail地址'])
   if (emailVal) {
     data.personal.email = emailVal.replace(/\s/g, '')
   } else {
@@ -301,21 +433,33 @@ export function parseResumeFromText(text: string): ResumeData {
   }
 
   // ============ 提取性别 ============
-  const genderVal = findValue(cleanText, ['性别', 'Gender'])
+  let genderVal = basicPairs.get('性别')
+  if (!genderVal) genderVal = findValue(cleanText, ['性别', 'Gender'])
   if (genderVal) {
     const m = genderVal.match(/男|女/)
     if (m) data.personal.gender = m[0]
   }
 
   // ============ 提取出生年月 ============
-  const birthVal = findValue(cleanText, ['出生年月', '出生日期', '生日', '出生', 'Birth', 'Birthday', 'Date of Birth'])
+  let birthVal = basicPairs.get('出生年月') || basicPairs.get('出生日期') || basicPairs.get('生日') || basicPairs.get('出生')
+  const birthKeywords = ['出生年月', '出生日期', '生日', '出生', 'Birth', 'Birthday', 'Date of Birth', '出生年', '出生时间']
+  if (!birthVal) birthVal = findValue(cleanText, birthKeywords)
   if (birthVal) {
     data.personal.birthDate = normalizeDate(birthVal)
   } else {
     // 尝试匹配 "1994年5月" 或 "1994-05" 格式
-    const birthMatch = cleanText.match(/(\d{4}[\-/年]\d{1,2}[\-/月]?)/)
-    if (birthMatch && !data.personal.birthDate) {
-      data.personal.birthDate = normalizeDate(birthMatch[1])
+    // 优先匹配带"出生"关键词的行
+    const birthLineMatch = cleanText.match(/出生[^0-9]*(\d{4})[\-/年](\d{1,2})[\-/月]?/)
+    if (birthLineMatch) {
+      data.personal.birthDate = normalizeDate(birthLineMatch[1] + '-' + birthLineMatch[2])
+    } else {
+      // 尝试匹配年龄推算（如"24岁"）
+      const ageMatch = cleanText.match(/(\d{1,2})\s*岁/)
+      if (ageMatch) {
+        const age = parseInt(ageMatch[1])
+        const birthYear = new Date().getFullYear() - age
+        data.personal.birthDate = `${birthYear}-01`
+      }
     }
   }
 
@@ -339,7 +483,8 @@ export function parseResumeFromText(text: string): ResumeData {
   }
 
   // ============ 提取英语水平 ============
-  const englishVal = findValue(cleanText, ['英语水平', '英语', '外语水平', '外语', 'English', 'English Level'])
+  let englishVal = basicPairs.get('英语水平') || basicPairs.get('英语') || basicPairs.get('外语水平') || basicPairs.get('外语')
+  if (!englishVal) englishVal = findValue(cleanText, ['英语水平', '英语', '外语水平', '外语', 'English', 'English Level'])
   if (englishVal) {
     data.personal.englishLevel = englishVal
   } else {
@@ -388,66 +533,128 @@ export function parseResumeFromText(text: string): ResumeData {
     data.selfEvaluation = evalSection.trim()
   }
 
+  // ============ 从基本信息中提取教育相关字段（支持无教育背景章节的情况） ============
+  let eduFromBasic: EducationItem | null = null
+  if (basicPairs.size > 0) {
+    const schoolVal = basicPairs.get('毕业院校') || basicPairs.get('学校') || basicPairs.get('院校')
+    const majorVal = basicPairs.get('专业')
+    const degreeVal = basicPairs.get('学历') || basicPairs.get('学位')
+    const gradDateVal = basicPairs.get('毕业时间') || basicPairs.get('毕业年月') || basicPairs.get('毕业日期')
+
+    if (schoolVal || majorVal || degreeVal || gradDateVal) {
+      eduFromBasic = {
+        id: genId(),
+        school: schoolVal || '',
+        major: majorVal || '',
+        degree: degreeVal || '',
+        startDate: '',
+        endDate: gradDateVal ? normalizeDate(gradDateVal) : '',
+        description: ''
+      }
+    }
+  }
+
   // ============ 提取教育背景 ============
-  const eduSection = extractSection(cleanText, ['教育背景', '教育经历', '学历', 'Education', 'Educational Background'])
+  const eduSection = extractSection(cleanText, ['教育背景', '教育经历', '学历', 'Education', 'Educational Background', '教育'])
   if (eduSection) {
     const eduLines = eduSection.split('\n').filter(l => l.trim())
     let currentEdu: EducationItem | null = null
 
     for (const line of eduLines) {
-      // 匹配日期范围
-      const dateRange = line.match(/(\d{4}[\./\-年]\d{1,2})\s*(?:[-–—至到~—])\s*(\d{4}[\./\-年]\d{1,2}|至今|现在|present|Present)/i)
+      // 匹配日期范围（支持更多格式）
+      const dateRange = line.match(/(\d{4})[\./\-年](\d{1,2})[\./\-月]?\s*(?:[-–—至到~—，])\s*(\d{4})[\./\-年](\d{1,2})[\./\-月]?|至今|现在|present|Present/i)
+      const dateRangeSimple = line.match(/(\d{4})\s*(?:[-–—至到~—])\s*(\d{4})/)
 
       if (dateRange) {
         if (currentEdu) data.education.push(currentEdu)
         currentEdu = {
           id: genId(), school: '', major: '', degree: '',
-          startDate: normalizeDate(dateRange[1]),
-          endDate: normalizeDate(dateRange[2]),
+          startDate: normalizeDate(dateRange[1] + '-' + dateRange[2]),
+          endDate: dateRange[0].includes('至今') || dateRange[0].includes('现在') ? '至今' : normalizeDate(dateRange[3] + '-' + dateRange[4]),
           description: ''
         }
-        // 从同一行提取学校
-        const schoolMatch = line.match(/([\u4e00-\u9fa5]{2,}(?:大学|学院|学校|研究院|研究所|理工大学))|(?:University|Institute|College|School)\s+of\s+[\w\s]+/i)
-        if (schoolMatch) currentEdu.school = schoolMatch[0]
-        // 从同一行提取学位
-        const degreeMatch = line.match(/(博士|硕士|学士|本科|大专|专科|MBA|PhD|Master|Bachelor)/i)
-        if (degreeMatch) currentEdu.degree = degreeMatch[1]
-      } else if (currentEdu) {
-        // 匹配学校名
-        if (!currentEdu.school) {
-          const schoolMatch = line.match(/([\u4e00-\u9fa5]{2,}(?:大学|学院|学校|研究院|研究所|理工大学))|(?:University|Institute|College|School)\s+of\s+[\w\s]+/i)
+      } else if (dateRangeSimple) {
+        if (currentEdu) data.education.push(currentEdu)
+        currentEdu = {
+          id: genId(), school: '', major: '', degree: '',
+          startDate: dateRangeSimple[1] + '-09',
+          endDate: dateRangeSimple[2] + '-06',
+          description: ''
+        }
+      }
+
+      if (dateRange || dateRangeSimple) {
+        // 从同一行提取学校（支持更多学校名格式）
+        const schoolPatterns = [
+          /([\u4e00-\u9fa5]{2,}(?:大学|学院|学校|研究院|研究所|理工大学|科技大学|工业大学|交通大学|师范大学|医科大学|财经大学|政法大学|外语大学|外国语大学))/,
+          /([\u4e00-\u9fa5]{2,}(?:职院|技校|中专|高中))/,
+          /(?:University|Institute|College|School)\s+(?:of\s+)?[\w\s]+/i,
+          /([A-Z][a-z]+\s+(?:University|College|Institute|School))/i
+        ]
+        for (const pattern of schoolPatterns) {
+          const schoolMatch = line.match(pattern)
           if (schoolMatch) {
-            currentEdu.school = schoolMatch[0]
-            continue
+            if (currentEdu) currentEdu.school = schoolMatch[0]
+            break
           }
         }
+        // 从同一行提取学位
+        const degreeMatch = line.match(/(博士|硕士|学士|本科|大专|专科|中专|高中|MBA|PhD|Master|Bachelor|研究生)/i)
+        if (degreeMatch && currentEdu) currentEdu.degree = degreeMatch[1]
+      } else if (currentEdu) {
+        // 匹配学校名（支持更多格式）
+        if (!currentEdu.school) {
+          const schoolPatterns = [
+            /([\u4e00-\u9fa5]{2,}(?:大学|学院|学校|研究院|研究所|理工大学|科技大学|工业大学|交通大学|师范大学|医科大学|财经大学|政法大学|外语大学|外国语大学))/,
+            /([\u4e00-\u9fa5]{2,}(?:职院|技校|中专|高中))/,
+            /(?:University|Institute|College|School)\s+(?:of\s+)?[\w\s]+/i,
+            /([A-Z][a-z]+\s+(?:University|College|Institute|School))/i
+          ]
+          for (const pattern of schoolPatterns) {
+            const schoolMatch = line.match(pattern)
+            if (schoolMatch) {
+              currentEdu.school = schoolMatch[0]
+              break
+            }
+          }
+          if (currentEdu.school) continue
+        }
+        
         // 匹配学位
         if (!currentEdu.degree) {
-          const degreeMatch = line.match(/(博士|硕士|学士|本科|大专|专科|MBA|PhD|Master|Bachelor)/i)
+          const degreeMatch = line.match(/(博士|硕士|学士|本科|大专|专科|中专|高中|MBA|PhD|Master|Bachelor|研究生)/i)
           if (degreeMatch) {
             currentEdu.degree = degreeMatch[1]
-            // 同行可能有专业
-            const majorMatch = line.match(/([\u4e00-\u9fa5]{2,}(?:专业|工程|科学|技术|管理|经济|文学|艺术|设计|教育))/)
-            if (majorMatch) currentEdu.major = majorMatch[0]
             continue
           }
         }
-        // 匹配专业
+        
+        // 匹配专业（支持更多格式）
         if (!currentEdu.major) {
-          const majorMatch = line.match(/(?:专业|方向|Major|Specialization|Department)\s*[:：]?\s*([\u4e00-\u9fa5\w（）()]+)/i)
-          if (majorMatch) {
-            currentEdu.major = majorMatch[1].trim()
+          // 方式1：关键词+冒号
+          const majorMatch1 = line.match(/(?:专业|方向|Major|Specialization|Department)\s*[:：]?\s*([\u4e00-\u9fa5\w（）()]+)/i)
+          if (majorMatch1) {
+            currentEdu.major = majorMatch1[1].trim()
             continue
           }
-          // 如果短行不含数字，可能是专业
-          if (line.length < 25 && !/[\d]/.test(line) && !currentEdu.major) {
-            const majorKw = line.match(/([\u4e00-\u9fa5]{2,}(?:专业|工程|科学|技术|管理|经济|文学|艺术|设计|教育))/)
-            if (majorKw) {
-              currentEdu.major = majorKw[0]
+          
+          // 方式2：专业关键词结尾
+          const majorMatch2 = line.match(/([\u4e00-\u9fa5]{2,}(?:专业|工程|科学|技术|管理|经济|文学|艺术|设计|教育|研究|医学|法学|理学|工学|商学))/)
+          if (majorMatch2) {
+            currentEdu.major = majorMatch2[0]
+            continue
+          }
+          
+          // 方式3：短行不含数字，可能是专业
+          if (line.length >= 2 && line.length <= 20 && !/[\d]/.test(line) && !/^(教育|工作|项目|技能|证书|语言|自我)/.test(line)) {
+            // 排除一些明显不是专业的行
+            if (!/(?:大学|学院|学校|研究院|研究所|博士|硕士|学士|本科|大专|专科)/.test(line)) {
+              currentEdu.major = line
               continue
             }
           }
         }
+        
         // 其他信息作为描述
         if (line.length > 3) {
           currentEdu.description += (currentEdu.description ? '\n' : '') + line
@@ -455,6 +662,11 @@ export function parseResumeFromText(text: string): ResumeData {
       }
     }
     if (currentEdu) data.education.push(currentEdu)
+  }
+
+  // 如果基本信息中提取到了教育字段，且教育背景章节没有提取到，则使用基本信息的
+  if (eduFromBasic && data.education.length === 0) {
+    data.education.push(eduFromBasic)
   }
 
   // ============ 提取工作经历 ============

@@ -404,7 +404,155 @@ const importPDFFile = async (event: Event) => {
 }
 
 const handlePrint = () => {
-  window.print()
+  const resumeEl = document.querySelector('.resume-paper') as HTMLElement
+  if (!resumeEl) {
+    error('未找到简历内容')
+    return
+  }
+
+  // 克隆简历元素
+  const clonedResume = resumeEl.cloneNode(true) as HTMLElement
+  clonedResume.style.transform = 'none'
+  clonedResume.style.transformOrigin = 'top left'
+  clonedResume.style.width = '210mm'
+  clonedResume.style.margin = '0'
+  clonedResume.style.boxShadow = 'none'
+
+  // 获取当前页面所有样式
+  const styles = document.querySelectorAll('style, link[rel="stylesheet"]')
+  let styleHTML = ''
+  styles.forEach(style => {
+    styleHTML += style.outerHTML
+  })
+
+  // 创建打印HTML — 严格A4单页，scale-to-fit不切割
+  const printHTML = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>简历</title>
+  ${styleHTML}
+  <style>
+    @page { size: A4; margin: 0; }
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+    }
+    #print-wrapper {
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;
+      position: relative;
+    }
+    .resume-paper {
+      width: 210mm !important;
+      min-height: 0 !important;
+      height: auto !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      transform-origin: top left !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="print-wrapper">
+    ${clonedResume.outerHTML}
+  </div>
+</body>
+</html>`
+
+  // 创建离屏iframe（需可见尺寸才能正确渲染测量）
+  const iframe = document.createElement('iframe')
+  iframe.style.position = 'fixed'
+  iframe.style.left = '-9999px'
+  iframe.style.top = '0'
+  iframe.style.width = '820px'
+  iframe.style.height = '1200px'
+  iframe.style.border = '0'
+  document.body.appendChild(iframe)
+
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+  if (!iframeDoc) {
+    error('创建打印窗口失败')
+    document.body.removeChild(iframe)
+    return
+  }
+
+  iframeDoc.open()
+  iframeDoc.write(printHTML)
+  iframeDoc.close()
+
+  const cleanup = () => {
+    if (iframe.parentNode) document.body.removeChild(iframe)
+  }
+
+  // 等待渲染完成后测量并缩放
+  iframe.onload = () => {
+    setTimeout(() => {
+      const iDoc = iframe.contentDocument
+      const iWin = iframe.contentWindow
+      if (!iDoc || !iWin) { cleanup(); return }
+
+      const resume = iDoc.querySelector('.resume-paper') as HTMLElement
+      if (!resume) { cleanup(); return }
+
+      // 测量实际内容高度
+      const actualHeightPx = resume.scrollHeight
+      const a4HeightPx = 297 * 96 / 25.4 // ≈ 1122.52px
+
+      if (actualHeightPx > a4HeightPx) {
+        // 等比缩放整个简历以适应A4高度（不切割、不变形）
+        const scale = a4HeightPx / actualHeightPx
+        resume.style.transform = `scale(${scale})`
+        // 缩放后宽度变小，水平居中
+        const scaledWidthPx = (210 * 96 / 25.4) * scale
+        const wrapperWidthPx = 210 * 96 / 25.4
+        const offset = (wrapperWidthPx - scaledWidthPx) / 2
+        resume.style.marginLeft = `${offset}px`
+      }
+
+      // 等待缩放应用后打印
+      setTimeout(() => {
+        iWin.focus()
+        iWin.print()
+        setTimeout(cleanup, 2000)
+      }, 300)
+    }, 600)
+  }
+
+  // 备用：如果onload不触发
+  setTimeout(() => {
+    if (document.body.contains(iframe)) {
+      const iWin = iframe.contentWindow
+      const iDoc = iframe.contentDocument
+      if (iDoc && iWin) {
+        const resume = iDoc.querySelector('.resume-paper') as HTMLElement
+        if (resume) {
+          const actualHeightPx = resume.scrollHeight
+          const a4HeightPx = 297 * 96 / 25.4
+          if (actualHeightPx > a4HeightPx) {
+            const scale = a4HeightPx / actualHeightPx
+            resume.style.transform = `scale(${scale})`
+            const scaledWidthPx = (210 * 96 / 25.4) * scale
+            const wrapperWidthPx = 210 * 96 / 25.4
+            const offset = (wrapperWidthPx - scaledWidthPx) / 2
+            resume.style.marginLeft = `${offset}px`
+          }
+        }
+        iWin.focus()
+        iWin.print()
+        setTimeout(cleanup, 2000)
+      } else {
+        cleanup()
+      }
+    }
+  }, 3000)
 }
 
 // 照片上传
@@ -644,13 +792,13 @@ onMounted(() => {
                   class="w-full px-3 py-2 rounded-lg bg-bg-secondary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
               </div>
               <div>
-                <label class="text-xs text-text-tertiary mb-1 block">网站</label>
-                <input v-model="resumeData.personal.website" placeholder="https://..."
+                <label class="text-xs text-text-tertiary mb-1 block">GitHub</label>
+                <input v-model="resumeData.personal.github" placeholder="https://github.com/..."
                   class="w-full px-3 py-2 rounded-lg bg-bg-secondary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
               </div>
               <div>
-                <label class="text-xs text-text-tertiary mb-1 block">GitHub</label>
-                <input v-model="resumeData.personal.github" placeholder="https://github.com/..."
+                <label class="text-xs text-text-tertiary mb-1 block">个人主页/博客</label>
+                <input v-model="resumeData.personal.website" placeholder="https://..."
                   class="w-full px-3 py-2 rounded-lg bg-bg-secondary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
               </div>
             </div>
@@ -744,16 +892,44 @@ onMounted(() => {
                   <button @click="removeItem(resumeData.education, edu.id)" class="p-1 hover:bg-red-600/20 rounded text-red-400"><Trash2 class="w-3 h-3" /></button>
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-2 mb-2">
-                <input v-model="edu.school" placeholder="学校名称" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
-                <input v-model="edu.major" placeholder="专业" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
-                <input v-model="edu.degree" placeholder="学历（本科/硕士）" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+              <div class="space-y-2">
                 <div class="grid grid-cols-2 gap-2">
-                  <input v-model="edu.startDate" placeholder="2016-09" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
-                  <input v-model="edu.endDate" placeholder="2019-06" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+                  <div>
+                    <label class="text-xs text-text-tertiary mb-0.5 block">学校名称</label>
+                    <input v-model="edu.school" placeholder="清华大学" class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+                  </div>
+                  <div>
+                    <label class="text-xs text-text-tertiary mb-0.5 block">专业</label>
+                    <input v-model="edu.major" placeholder="计算机科学与技术" class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+                  </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <div>
+                    <label class="text-xs text-text-tertiary mb-0.5 block">学历</label>
+                    <select v-model="edu.degree" class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50">
+                      <option value="">请选择</option>
+                      <option value="高中">高中</option>
+                      <option value="中专">中专</option>
+                      <option value="大专">大专</option>
+                      <option value="本科">本科</option>
+                      <option value="硕士">硕士</option>
+                      <option value="博士">博士</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs text-text-tertiary mb-0.5 block">入学时间</label>
+                    <input v-model="edu.startDate" placeholder="2016-09" class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+                  </div>
+                  <div>
+                    <label class="text-xs text-text-tertiary mb-0.5 block">毕业时间</label>
+                    <input v-model="edu.endDate" placeholder="2020-06" class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+                  </div>
+                </div>
+                <div>
+                  <label class="text-xs text-text-tertiary mb-0.5 block">在校经历（选填）</label>
+                  <textarea v-model="edu.description" rows="2" placeholder="主修课程、获奖情况、社团活动等..." class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"></textarea>
                 </div>
               </div>
-              <textarea v-model="edu.description" rows="2" placeholder="描述（选填）..." class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"></textarea>
             </div>
             <div v-if="!resumeData.education.length" class="text-center py-4 text-text-tertiary text-sm">
               暂无教育背景，点击上方"添加"

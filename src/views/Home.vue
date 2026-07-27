@@ -10,11 +10,18 @@ const router = useRouter()
 
 const tools = ref([
   {
-    id: 'document-extractor',
-    name: '文档提取器',
-    description: '智能提取文档关键信息，自动识别标题、段落、关键词',
-    icon: 'FileText',
-    color: 'from-blue-500 to-cyan-500'
+    id: 'resume-generator',
+    name: '简历生成器',
+    description: '50套精选模板，实时预览，PDF/Markdown/JSON多格式导出',
+    icon: 'Briefcase',
+    color: 'from-emerald-500 to-teal-500'
+  },
+  {
+    id: 'code-practice',
+    name: '代码速度练习',
+    description: '程序员打字训练，多语言随机代码生成，D~SR六级评分系统',
+    icon: 'Keyboard',
+    color: 'from-amber-500 to-red-500'
   },
   {
     id: 'image-converter',
@@ -24,11 +31,39 @@ const tools = ref([
     color: 'from-purple-500 to-pink-500'
   },
   {
-    id: 'json-tools',
-    name: 'JSON工具箱',
-    description: 'JSON格式化、压缩、校验、转换，实时语法高亮',
-    icon: 'Braces',
-    color: 'from-green-500 to-teal-500'
+    id: 'regex-tester',
+    name: '正则表达式测试器',
+    description: '实时测试正则表达式，匹配高亮，生成多语言代码',
+    icon: 'Regex',
+    color: 'from-orange-500 to-red-500'
+  },
+  {
+    id: 'uuid-generator',
+    name: 'UUID/GUID生成器',
+    description: '批量生成UUID，支持v1/v4版本，多种格式选项',
+    icon: 'Fingerprint',
+    color: 'from-emerald-500 to-teal-500'
+  },
+  {
+    id: 'encoder-decoder',
+    name: '编码转换工具',
+    description: 'Base64、URL、Unicode、HTML实体、进制转换等编码转换',
+    icon: 'Key',
+    color: 'from-red-500 to-rose-500'
+  },
+  {
+    id: 'cron-generator',
+    name: 'Cron表达式生成器',
+    description: '可视化配置定时任务，解析Cron含义，显示执行时间',
+    icon: 'Timer',
+    color: 'from-blue-500 to-indigo-500'
+  },
+  {
+    id: 'document-extractor',
+    name: '文档提取器',
+    description: '智能提取文档关键信息，自动识别标题、段落、关键词',
+    icon: 'FileText',
+    color: 'from-blue-500 to-cyan-500'
   },
   {
     id: 'code-formatter',
@@ -38,11 +73,11 @@ const tools = ref([
     color: 'from-yellow-500 to-orange-500'
   },
   {
-    id: 'encoder-decoder',
-    name: '编码转换工具',
-    description: 'Base64、URL、Unicode、HTML实体等编码转换',
-    icon: 'Key',
-    color: 'from-red-500 to-rose-500'
+    id: 'json-tools',
+    name: 'JSON工具箱',
+    description: 'JSON格式化、压缩、校验、转换，实时语法高亮',
+    icon: 'Braces',
+    color: 'from-green-500 to-teal-500'
   },
   {
     id: 'text-diff',
@@ -85,20 +120,6 @@ const tools = ref([
     description: 'HEX/RGB/HSL/CMYK格式互转，实时预览和颜色选择器',
     icon: 'Palette',
     color: 'from-pink-500 to-rose-500'
-  },
-  {
-    id: 'code-practice',
-    name: '代码速度练习',
-    description: '程序员打字训练，多语言随机代码生成，D~SR六级评分系统',
-    icon: 'Keyboard',
-    color: 'from-amber-500 to-red-500'
-  },
-  {
-    id: 'resume-generator',
-    name: '简历生成器',
-    description: '16套精选模板（含科林130套精选），实时预览，PDF/Markdown/JSON多格式导出',
-    icon: 'Briefcase',
-    color: 'from-emerald-500 to-teal-500'
   }
 ])
 
@@ -137,7 +158,7 @@ const clearSearch = () => {
         Future Helios
       </h2>
       <p class="text-xl text-text-secondary max-w-2xl mx-auto">
-        13个核心工具，提升开发效率。所有数据本地处理，安全可靠。
+        16个核心工具，提升开发效率。所有数据本地处理，安全可靠。
       </p>
     </div>
 

@@ -66,18 +66,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     primaryColor: '#c19a6b', secondaryColor: '#8b7355', backgroundColor: '#fffbf0', textColor: '#3a3a3a', lightText: '#ffffff', accentColor: '#c19a6b',
     features: ['photo-bg', 'rounded-card', 'circle-photo', 'dashed-divider', 'line-icons'] },
 
-  // 模板3：左右对半分栏环形进度图表营销风
-  { id: 't03', name: '红黑环形营销双栏', category: '双栏分栏', layout: 'two-column',
-    theme: 'red-ring-marketing', description: '1:1对半分栏+4个环形百分比进度圆环+红色侧边飘带',
-    primaryColor: '#e74c3c', secondaryColor: '#c0392b', backgroundColor: '#f8f9fa', textColor: '#2c3e50', lightText: '#ffffff', accentColor: '#e74c3c',
-    features: ['skill-rings', 'side-ribbon', 'watermark', 'circle-photo'] },
-
-  // 模板4：红色几何多边形色块财会正式
-  { id: 't04', name: '红色几何财会正式', category: '顶部横幅', layout: 'banner-top',
-    theme: 'red-geometric-finance', description: '上半红色多边形肌理+下半浅红+城市建筑剪影',
-    primaryColor: '#dd4444', secondaryColor: '#b8333a', backgroundColor: '#fff5f5', textColor: '#1a1a1a', lightText: '#ffffff', accentColor: '#dd4444',
-    features: ['geometric-bg', 'city-silhouette', 'hexagon-icon', 'circle-photo'] },
-
   // 模板5：时间轴纵向色块侧边履历技术岗
   { id: 't05', name: '彩色时间轴技术岗', category: '时间轴', layout: 'timeline',
     theme: 'macaron-timeline-tech', description: '左侧固定信息栏+右侧垂直时间轴+彩色圆角色块',
@@ -89,24 +77,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     theme: 'dark-code-pm', description: '炭黑底色+//注释板块分割+黄色高亮标题+代码风格',
     primaryColor: '#222228', secondaryColor: '#2d2d35', backgroundColor: '#222228', textColor: '#e0e0e0', lightText: '#ffffff', accentColor: '#f1c40f',
     features: ['code-style', 'yellow-line', 'icon-cards', 'circle-photo'] },
-
-  // 模板7：折线时间轴+饼图/柱状数据分析
-  { id: 't07', name: '数据分析图表简历', category: '数据图表', layout: 'dashboard',
-    theme: 'data-viz-dashboard', description: '暖米底色+绿色折线时间轴+柱状图+饼图',
-    primaryColor: '#27ae60', secondaryColor: '#2ecc71', backgroundColor: '#fdf6e3', textColor: '#2c3e50', lightText: '#ffffff', accentColor: '#e67e22',
-    features: ['line-chart', 'bar-chart', 'pie-chart', 'timeline-line'] },
-
-  // 模板8：四宫格撞色分栏欧美创意
-  { id: 't08', name: '四宫格撞色欧美', category: '卡片模块', layout: 'card-style',
-    theme: 'four-block-clash', description: '四宫格撞色(藏蓝/姜黄/橘橙/浅黄)+技能进度条',
-    primaryColor: '#1a3a5c', secondaryColor: '#f1c40f', backgroundColor: '#ffffff', textColor: '#1a1a1a', lightText: '#ffffff', accentColor: '#e67e22',
-    features: ['four-grid', 'clash-colors', 'progress-bar', 'bottom-bar'] },
-
-  // 模板9：渐变红底三卡片模块化应届生
-  { id: 't09', name: '渐变红三卡片应届', category: '卡片模块', layout: 'card-style',
-    theme: 'red-gradient-cards', description: '玫红渐变底色+三个白色圆角卡片+6个技能进度条',
-    primaryColor: '#e8336d', secondaryColor: '#ff6b9d', backgroundColor: '#fff0f3', textColor: '#2c2c2c', lightText: '#ffffff', accentColor: '#e8336d',
-    features: ['gradient-bg', 'three-cards', 'progress-bar', 'circle-photo'] },
 
   // 模板10：森林狼王艺术摄影背景高端商务文艺
   { id: 't10', name: '森林摄影轻奢文艺', category: '居中通栏', layout: 'banner-center',
@@ -128,23 +98,11 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     primaryColor: '#48a8c8', secondaryColor: '#5dade2', backgroundColor: '#ffffff', textColor: '#1a1a1a', lightText: '#ffffff', accentColor: '#48a8c8',
     features: ['circle-number', 'blue-line', 'check-mark', 'circle-photo'] },
 
-  // 模板13：深色竖线时间轴左右分栏市场营销
-  { id: 't13', name: '深色时间轴市场双栏', category: '双栏分栏', layout: 'two-column',
-    theme: 'dark-timeline-marketing', description: '1:1左右分栏+深灰纵向时间轴+圆形节点+斜切标题侧栏',
-    primaryColor: '#3274bc', secondaryColor: '#2c3035', backgroundColor: '#ffffff', textColor: '#2c3035', lightText: '#ffffff', accentColor: '#3274bc',
-    features: ['timeline-dots', 'slanted-sidebar', 'grid-texture', 'flat-icons'] },
-
   // 模板14：淡绿色侧边竖线文艺文案应届生
   { id: 't14', name: '薄荷绿文艺文案', category: '简洁居中', layout: 'clean-center',
     theme: 'mint-green-literary', description: '米白底色+淡绿通栏横幅+竖向绿条标题栏+圆点标记',
     primaryColor: '#4a9e5e', secondaryColor: '#5cb572', backgroundColor: '#fdfbf7', textColor: '#1a3a1a', lightText: '#ffffff', accentColor: '#4a9e5e',
     features: ['green-banner', 'vertical-title', 'dot-marker', 'square-photo'] },
-
-  // 模板15：蓝色顶部横幅环形图表欧美风营销
-  { id: 't15', name: '蓝横幅环形欧美营销', category: '顶部横幅', layout: 'banner-top',
-    theme: 'blue-banner-ring-eu', description: '深蓝通栏页眉+圆形红蓝镶边头像+4环形进度+英文大标题',
-    primaryColor: '#3157b9', secondaryColor: '#1a3a8c', backgroundColor: '#f5f7fa', textColor: '#1a1a1a', lightText: '#ffffff', accentColor: '#3157b9',
-    features: ['skill-rings', 'watermark', 'circle-photo', 'en-cn-title'] },
 
   // 模板16：纯横线节点极简商务时间轴销售运营
   { id: 't16', name: '极简线条销售时间轴', category: '时间轴', layout: 'timeline',
@@ -196,12 +154,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     primaryColor: '#62c8b8', secondaryColor: '#48b89e', backgroundColor: '#ffffff', textColor: '#2c3e3a', lightText: '#ffffff', accentColor: '#62c8b8',
     features: ['geo-corner', 'center-photo', 'vertical-divider', 'wide-spacing'] },
 
-  // 模板24：浅蓝分栏产品交互设计师商科留学简约
-  { id: 't24', name: '浅蓝区块产品交互', category: '双栏分栏', layout: 'two-column',
-    theme: 'light-blue-product', description: '纯白通栏+交替浅蓝区块+深蓝标题+量化成果分点',
-    primaryColor: '#1a5fb4', secondaryColor: '#3a7bd5', backgroundColor: '#e8f2fc', textColor: '#1a1a1a', lightText: '#ffffff', accentColor: '#1a5fb4',
-    features: ['alt-blue-block', 'deep-blue-title', 'quantified-list'] },
-
   // 模板25：左侧蓝竖条欧式双栏平面设计艺术
   { id: 't25', name: '藏蓝欧式设计双栏', category: '商务侧栏', layout: 'sidebar-left',
     theme: 'navy-euro-design', description: '藏蓝竖侧栏+欧式建筑线稿暗纹+能力进度条+圆形爱好图标',
@@ -214,31 +166,13 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     primaryColor: '#202022', secondaryColor: '#2a2a2e', backgroundColor: '#202022', textColor: '#e8e8e8', lightText: '#ffffff', accentColor: '#e8c258',
     features: ['dark-bg', 'center-symmetric', 'yellow-title', 'circle-photo'] },
 
-  // 模板27：黑白撞色左右对半分栏模块化
-  { id: 't27', name: '黑白撞色模块化', category: '双栏分栏', layout: 'two-column',
-    theme: 'bw-clash-modular', description: '左半纯黑+黄色文字/右半纯白+黑色文字+圆角区块穿插对接',
-    primaryColor: '#0a0a0a', secondaryColor: '#1a1a1a', backgroundColor: '#ffffff', textColor: '#1a1a1a', lightText: '#f1c40f', accentColor: '#f1c40f',
-    features: ['bw-split', 'yellow-accent', 'rounded-module', 'interlock'] },
-
   // 模板28：深灰背景顶部照片竖向排版商务
   { id: 't28', name: '深灰鎏金竖排商务', category: '深色主题', layout: 'dark-theme',
     theme: 'dark-gold-vertical-biz', description: '深炭灰底+顶部居中照片+金色标题+左右两列竖向排布',
     primaryColor: '#28282a', secondaryColor: '#333336', backgroundColor: '#28282a', textColor: '#d5d5d5', lightText: '#ffffff', accentColor: '#d4b866',
     features: ['dark-bg', 'gold-title', 'top-center-photo', 'two-col-vertical'] },
 
-  // 模板29：牛仔布料肌理四宫格市场推广创意
-  { id: 't29', name: '牛仔布四宫格创意', category: '卡片模块', layout: 'card-style',
-    theme: 'denim-four-grid', description: '牛仔布纹理蓝底+牛皮纸折角标题+圆形居中头像+四宫格+扇形饼图',
-    primaryColor: '#345875', secondaryColor: '#4a7090', backgroundColor: '#345875', textColor: '#f5e6c8', lightText: '#ffffff', accentColor: '#d4a574',
-    features: ['denim-texture', 'paper-fold', 'four-grid', 'pie-chart', 'circle-photo'] },
-
   // ======== 第4组：自创扩展模板（21套）========
-
-  // 模板30：莫兰迪低饱和优雅双栏
-  { id: 't30', name: '莫兰迪低饱和优雅', category: '双栏分栏', layout: 'two-column',
-    theme: 'morandi-elegant', description: '莫兰迪灰粉灰绿灰蓝低饱和+高级感双栏+细线分割',
-    primaryColor: '#5a6b79', secondaryColor: '#7a8b99', backgroundColor: '#f4f1ee', textColor: '#3a3a3a', lightText: '#ffffff', accentColor: '#8a7a78',
-    features: ['morandi', 'thin-divider', 'circle-photo', 'minimal-deco'] },
 
   // 模板31：科技蓝绿流光侧栏
   { id: 't31', name: '科技流光蓝绿侧栏', category: '商务侧栏', layout: 'sidebar-left',
@@ -263,12 +197,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     theme: 'muji-japanese-minimal', description: '原木色+大量留白+极细线条+无衬线字体+自然素雅',
     primaryColor: '#5a6650', secondaryColor: '#8a9080', backgroundColor: '#faf9f6', textColor: '#3a3a3a', lightText: '#ffffff', accentColor: '#a09080',
     features: ['muji-style', 'thin-line', 'extreme-whitespace', 'circle-photo'] },
-
-  // 模板35：电影海报大字报创意
-  { id: 't35', name: '电影海报大字报', category: '顶部横幅', layout: 'banner-top',
-    theme: 'movie-poster-big', description: '深色底+超大号姓名+电影海报式排版+底部演职人员表风格',
-    primaryColor: '#1a1a2e', secondaryColor: '#16213e', backgroundColor: '#0f0f1a', textColor: '#e0e0e0', lightText: '#ffffff', accentColor: '#e94560',
-    features: ['huge-name', 'poster-layout', 'credits-style', 'cinema-bar'] },
 
   // 模板36：复古打字机信纸风
   { id: 't36', name: '复古打字机信纸', category: '简洁居中', layout: 'clean-center',

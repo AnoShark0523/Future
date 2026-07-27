@@ -22,10 +22,12 @@ export function encodeBase64(text: string): string {
  */
 export function decodeBase64(encoded: string): string {
   try {
-    const utf8Text = atob(encoded)
-    return decodeURIComponent(utf8Text.replace(/[\u0080-\uFFFF]/g, (_, p1) => {
-      return `%${(p1.charCodeAt(0) >> 4).toString(16)}${(p1.charCodeAt(0) & 0x0F).toString(16)}`
-    }))
+    const binaryString = atob(encoded)
+    const bytes = new Uint8Array(binaryString.length)
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i)
+    }
+    return new TextDecoder('utf-8').decode(bytes)
   } catch (e) {
     return ''
   }
@@ -294,9 +296,59 @@ export function batchConvert(text: string): Record<string, string> {
     'URL编码': encodeURL(text),
     'Unicode': encodeUnicode(text),
     'HTML实体': encodeHTML(text),
-    '十六进制': encodeHex(text),
+    '十六进制(字符)': encodeHex(text),
     '摩尔斯电码': encodeMorse(text),
     'ROT13': encodeRot13(text),
-    '二进制': encodeBinary(text)
+    '二进制(字符)': encodeBinary(text)
+  }
+}
+
+// ==================== 进制转换工具 ====================
+
+/**
+ * 进制转换
+ * @param value 输入值
+ * @param fromRadix 源进制（2-36）
+ * @param toRadix 目标进制（2-36）
+ */
+export function convertRadix(value: string, fromRadix: number, toRadix: number): string {
+  try {
+    // 先转成十进制
+    const decimal = parseInt(value, fromRadix)
+    if (isNaN(decimal)) return '无效输入'
+
+    // 再从十进制转成目标进制
+    return decimal.toString(toRadix).toUpperCase()
+  } catch (e) {
+    return '转换失败'
+  }
+}
+
+/**
+ * 十进制转其他进制
+ */
+export function decimalToRadix(decimal: string, toRadix: number): string {
+  return convertRadix(decimal, 10, toRadix)
+}
+
+/**
+ * 其他进制转十进制
+ */
+export function radixToDecimal(value: string, fromRadix: number): string {
+  return convertRadix(value, fromRadix, 10)
+}
+
+/**
+ * 批量进制转换（从十进制）
+ */
+export function batchRadixConvert(decimal: string): Record<string, string> {
+  const num = parseInt(decimal, 10)
+  if (isNaN(num)) return {}
+
+  return {
+    '二进制': num.toString(2),
+    '八进制': num.toString(8),
+    '十进制': decimal,
+    '十六进制': num.toString(16).toUpperCase()
   }
 }
