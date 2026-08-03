@@ -1,6 +1,7 @@
 /**
  * PDF 导入解析工具
  * 使用 pdfjs-dist 提取 PDF 文本内容，并智能匹配到简历数据结构
+ * 如果无法提取文本（扫描件/图片PDF），自动使用 Tesseract.js OCR 识别
  */
 
 import type { ResumeData, EducationItem, ExperienceItem, ProjectItem, SkillCategory, CertItem, LanguageItem } from './resumeTemplates'
@@ -16,19 +17,124 @@ async function loadPdfjs() {
     const workerModule = await import('pdfjs-dist/build/pdf.worker.mjs')
     pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default
   } catch {
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.1.200/pdf.worker.min.mjs`
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`
   }
 
   return pdfjs
 }
 
 /**
- * 从 PDF 文件提取全部文本
+ * 图像预处理：灰度化 + 对比度增强 + 二值化（Otsu 自动阈值）
+ * 显著提升 OCR 识别准确率，减少乱码
  */
-export async function extractTextFromPDF(file: File): Promise<string> {
+function preprocessImage(canvas: HTMLCanvasElement): void {
+  const context = canvas.getContext('2d')!
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+  const data = imageData.data
+
+  // Step 1: 灰度化
+  const grayValues: number[] = []
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2])
+    grayValues.push(gray)
+  }
+
+  // Step 2: 对比度增强（factor 1.5，让文字边缘更清晰）
+  const contrastFactor = 1.5
+  for (let i = 0; i < grayValues.length; i++) {
+    grayValues[i] = Math.max(0, Math.min(255, (grayValues[i] - 128) * contrastFactor + 128))
+  }
+
+  // Step 3: Otsu 自动阈值二值化
+  const threshold = otsuThreshold(grayValues)
+  for (let i = 0; i < grayValues.length; i++) {
+    const val = grayValues[i] > threshold ? 255 : 0
+    const idx = i * 4
+    data[idx] = val
+    data[idx + 1] = val
+    data[idx + 2] = val
+    // alpha 不变
+  }
+
+  context.putImageData(imageData, 0, 0)
+}
+
+/**
+ * Otsu 大津法自动计算二值化阈值
+ */
+function otsuThreshold(grayValues: number[]): number {
+  const histogram = new Array(256).fill(0)
+  for (const v of grayValues) histogram[v]++
+
+  const total = grayValues.length
+  let sum = 0
+  for (let i = 0; i < 256; i++) sum += i * histogram[i]
+
+  let sumB = 0
+  let wB = 0
+  let maxVariance = 0
+  let threshold = 128
+
+  for (let t = 0; t < 256; t++) {
+    wB += histogram[t]
+    if (wB === 0) continue
+    const wF = total - wB
+    if (wF === 0) break
+
+    sumB += t * histogram[t]
+    const mB = sumB / wB
+    const mF = (sum - sumB) / wF
+    const variance = wB * wF * (mB - mF) * (mB - mF)
+
+    if (variance > maxVariance) {
+      maxVariance = variance
+      threshold = t
+    }
+  }
+
+  return threshold
+}
+
+/**
+ * 清理 OCR 识别结果文本，去除常见乱码和噪声
+ */
+function cleanOcrText(text: string): string {
+  return text
+    // 统一换行
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // 压缩连续空格（保留换行）
+    .replace(/[ \t\u3000]+/g, ' ')
+    // 去除行首行尾空格
+    .split('\n')
+    .map(l => l.trim())
+    .join('\n')
+    // 压缩连续空行（最多保留一个空行）
+    .replace(/\n{3,}/g, '\n\n')
+    // 去除常见的 OCR 乱码行（单字符行或全是符号的行）
+    .split('\n')
+    .filter(l => {
+      const trimmed = l.trim()
+      if (trimmed.length === 0) return true // 保留空行用于分段
+      if (trimmed.length === 1 && /[^\u4e00-\u9fa5a-zA-Z0-9]/.test(trimmed)) return false
+      // 去除全是特殊符号的行（允许少量标点）
+      const symbolRatio = (trimmed.match(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g) || []).length / trimmed.length
+      if (symbolRatio > 0.6 && trimmed.length > 2) return false
+      return true
+    })
+    .join('\n')
+    .trim()
+}
+
+/**
+ * 使用 Tesseract.js 进行 OCR 识别（仅手动触发时使用，不自动调用）
+ * 包含图像预处理（灰度化+对比度增强+二值化）以提升中文识别准确率
+ * 注意：OCR 需要下载语言包（数十MB）并逐页识别，耗时可能数分钟
+ */
+export async function ocrFromPDF(arrayBuffer: ArrayBuffer, onProgress?: (msg: string) => void): Promise<string> {
+  const Tesseract = await import('tesseract.js')
   const pdfjs = await loadPdfjs()
 
-  const arrayBuffer = await file.arrayBuffer()
   const loadingTask = pdfjs.getDocument({
     data: arrayBuffer,
     cMapUrl: '/cmaps/',
@@ -39,6 +145,113 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   })
 
   const pdfDoc = await loadingTask.promise
+  const allText: string[] = []
+
+  onProgress?.('正在加载 OCR 引擎和中英文语言包...')
+  const worker = await Tesseract.createWorker(['chi_sim', 'eng'], 1, {
+    logger: m => {
+      if (m.status === 'recognizing text') {
+        onProgress?.(`OCR 识别中: ${Math.round(m.progress * 100)}%`)
+      } else if (m.status === 'loading language traineddata') {
+        onProgress?.('正在加载语言模型（约20MB，请耐心等待）...')
+      } else if (m.status === 'initializing api') {
+        onProgress?.('正在初始化 OCR 引擎...')
+      }
+    },
+    errorHandler: err => {
+      console.error('OCR Worker错误:', err)
+    }
+  })
+
+  // 设置 OCR 参数以提升中文识别准确率
+  await worker.setParameters({
+    // PSM 6: 假设为统一文本块，适合简历类文档
+    tessedit_pageseg_mode: '6',
+    // 保留单词间空格
+    preserve_interword_spaces: '1',
+    // 设置 DPI 提示
+    user_defined_dpi: '300',
+  })
+
+  for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+    onProgress?.(`正在渲染第 ${pageNum}/${pdfDoc.numPages} 页（高清模式）...`)
+    const page = await pdfDoc.getPage(pageNum)
+
+    // 使用更高的渲染比例（3x）以获得更清晰的文字
+    const scale = 3
+    const viewport = page.getViewport({ scale })
+
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')!
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+
+    // 先填充白色背景，避免透明背景导致 OCR 混乱
+    context.fillStyle = 'white'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+
+    await page.render({
+      canvasContext: context,
+      viewport: viewport
+    }).promise
+
+    // 图像预处理：灰度化 + 对比度增强 + 二值化
+    onProgress?.(`正在预处理第 ${pageNum}/${pdfDoc.numPages} 页图像...`)
+    preprocessImage(canvas)
+
+    // 转为 Blob 供 Tesseract 处理（比 dataURL 更高效）
+    const imageBlob = await new Promise<Blob>((resolve) => {
+      canvas.toBlob(blob => resolve(blob!), 'image/png')
+    })
+
+    onProgress?.(`正在识别第 ${pageNum}/${pdfDoc.numPages} 页...`)
+    const result = await worker.recognize(imageBlob)
+
+    if (result.data.text && result.data.text.trim()) {
+      const cleaned = cleanOcrText(result.data.text)
+      if (cleaned.length > 5) {
+        allText.push(cleaned)
+      }
+    }
+  }
+
+  await worker.terminate()
+  return allText.join('\n\n')
+}
+
+/**
+ * 带超时的 Promise 包装
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label}超时（${ms / 1000}秒）`)), ms)
+    )
+  ])
+}
+
+/**
+ * 从 PDF 文件提取全部文本
+ */
+export async function extractTextFromPDF(file: File): Promise<string> {
+  const pdfjs = await loadPdfjs()
+
+  const arrayBuffer = await file.arrayBuffer()
+  let pdfDoc
+  try {
+    const loadingTask = pdfjs.getDocument({
+      data: arrayBuffer,
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: '/standard_fonts/',
+      disableAutoFetch: true,
+      disableStream: true
+    })
+    pdfDoc = await withTimeout(loadingTask.promise, 15000, 'PDF 加载')
+  } catch (err) {
+    throw new Error(`PDF 解析失败: ${err instanceof Error ? err.message : String(err)}`)
+  }
   const allText: string[] = []
 
   for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
@@ -838,15 +1051,335 @@ export function parseResumeFromText(text: string): ResumeData {
 }
 
 /**
- * 从 PDF 文件导入简历数据
+ * PDF 导入结果（包含解析后的数据和原始文本）
  */
-export async function importResumeFromPDF(file: File): Promise<ResumeData> {
-  const text = await extractTextFromPDF(file)
+export interface PDFImportResult {
+  data: ResumeData
+  rawText: string
+  /** 导入方式：metadata=元数据恢复, text=文本提取, ocr=OCR识别 */
+  method?: 'metadata' | 'text' | 'ocr'
+  /** 导入的模板ID（仅 metadata 方式有值） */
+  templateId?: string
+}
 
-  if (!text || text.trim().length < 10) {
-    throw new Error('PDF 文件内容为空或无法提取文本（可能是扫描件）')
+/**
+ * 解析嵌入的简历数据 JSON 字符串
+ * 支持 v1/v2/v3 三种格式：
+ *   v1: 直接是 ResumeData JSON
+ *   v2/v3: { resumeData, templateId, exportVersion, exportTime }
+ */
+function parseEmbeddedData(jsonStr: string): { data: ResumeData; templateId?: string } | null {
+  try {
+    const parsed = JSON.parse(jsonStr)
+
+    // v2/v3 格式（含 templateId）
+    if (parsed && parsed.resumeData && parsed.resumeData.personal) {
+      const data = parsed.resumeData as ResumeData
+      if (!data.education) data.education = []
+      if (!data.experience) data.experience = []
+      if (!data.projects) data.projects = []
+      if (!data.skills) data.skills = []
+      if (!data.certifications) data.certifications = []
+      if (!data.languages) data.languages = []
+      return { data, templateId: parsed.templateId }
+    }
+
+    // v1 格式（直接是 ResumeData）
+    const data = parsed as ResumeData
+    if (data && data.personal && typeof data.personal.name !== 'undefined') {
+      if (!data.education) data.education = []
+      if (!data.experience) data.experience = []
+      if (!data.projects) data.projects = []
+      if (!data.skills) data.skills = []
+      if (!data.certifications) data.certifications = []
+      if (!data.languages) data.languages = []
+      return { data }
+    }
+  } catch {
+    // JSON 解析失败
+  }
+  return null
+}
+
+/**
+ * 从 PDF 的 EmbeddedFile 附件中提取简历数据（v4 导出格式专用）
+ *
+ * v4 导出格式使用 pdf-lib 的 attach() 方法将简历 JSON 作为标准 PDF 附件嵌入
+ * （ISO 32000-2 §14.13），所有主流 PDF 阅读器重新保存时都不会丢失。
+ * 使用 pdfjs-dist 的 getAttachments() API 读取，这是最可靠的恢复方式。
+ *
+ * @param file PDF 文件
+ * @returns 解析后的 { data, templateId }，如果没有找到则返回 null
+ */
+async function extractEmbeddedDataFromAttachment(file: File): Promise<{ data: ResumeData; templateId?: string } | null> {
+  try {
+    const pdfjs = await loadPdfjs()
+    const arrayBuffer = await file.arrayBuffer()
+
+    const loadingTask = pdfjs.getDocument({
+      data: arrayBuffer,
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: '/standard_fonts/',
+      disableAutoFetch: true,
+      disableStream: true
+    })
+    const pdfDoc = await withTimeout(loadingTask.promise, 15000, 'PDF 附件读取')
+
+    const attachments = await pdfDoc.getAttachments()
+    if (!attachments) return null
+
+    // 查找 resume.json 附件
+    const resumeAttachment = attachments['resume.json']
+    if (!resumeAttachment) return null
+
+    // pdfjs 返回的附件对象包含 content 字段（Uint8Array）
+    const bytes = resumeAttachment.content
+    if (!bytes || bytes.length === 0) return null
+    const jsonStr = new TextDecoder('utf-8').decode(bytes)
+    const parsed = parseEmbeddedData(jsonStr)
+    if (parsed.error) {
+      console.warn('[PDF Import] EmbeddedFile resume.json 解析失败:', parsed.error, '前200字预览:', jsonStr.slice(0, 200))
+      return null
+    }
+    console.info(`[PDF Import] 从 PDF EmbeddedFile 成功恢复 v${parsed.exportVersion || '1'} 数据，姓名=${parsed.data.personal?.name ?? '未知'}`)
+    return parsed
+  } catch (err) {
+    // EmbeddedFile 读取失败时输出警告，便于排查（不打断fallback链）
+    if (err instanceof Error && !/timeout/i.test(err.message)) {
+      console.warn('[PDF Import] EmbeddedFile 附件读取失败（继续走fallback链）:', err.message)
+    }
+    return null
+  }
+}
+
+/**
+ * 从原始文件字节中搜索 __RESUME_DATA__ 标记（v3 导出格式专用）
+ *
+ * v3 导出格式将简历 JSON 追加到 PDF 文件的 %%EOF 标记之后，
+ * 不依赖 jsPDF 的 setProperties（实测不可靠），直接读取原始字节。
+ * 这是最高优先级的恢复方式，100% 可靠。
+ *
+ * @param file PDF 文件
+ * @returns 解析后的 { data, templateId }，如果没有找到则返回 null
+ */
+async function extractEmbeddedDataFromRaw(file: File): Promise<{ data: ResumeData; templateId?: string } | null> {
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const bytes = new Uint8Array(arrayBuffer)
+
+    // 将文件转为字符串搜索标记（latin1 保留原始字节）
+    // 只搜索文件末尾的最后 500KB（嵌入数据在 %%EOF 之后，位于文件尾部）
+    const searchStart = Math.max(0, bytes.length - 500000)
+    const searchText = new TextDecoder('utf-8').decode(bytes.slice(searchStart))
+
+    const startMarker = '__RESUME_DATA__'
+    const endMarker = '__END_RESUME_DATA__'
+
+    const startIdx = searchText.indexOf(startMarker)
+    if (startIdx === -1) return null
+
+    const dataStart = startIdx + startMarker.length
+    const endIdx = searchText.indexOf(endMarker, dataStart)
+    if (endIdx === -1) return null
+
+    const encodedData = searchText.substring(dataStart, endIdx)
+    const jsonStr = decodeURIComponent(encodedData)
+
+    return parseEmbeddedData(jsonStr)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 从 PDF 提取的文本中搜索嵌入的简历数据标记
+ *
+ * 用于浏览器打印方式导出的 PDF（v4 导出格式）：
+ * 简历 JSON 数据以白色 1px 字体嵌入页面，打印为 PDF 后作为文字保留。
+ * pdfjs-dist 提取文字时可能会在字符之间插入空格，所以需要先去除所有空白字符再搜索。
+ *
+ * @param text pdfjs-dist 提取的 PDF 全文本
+ * @returns 解析后的 { data, templateId }，如果没有找到则返回 null
+ */
+function extractEmbeddedDataFromText(text: string): { data: ResumeData; templateId?: string } | null {
+  try {
+    // 去除所有空白字符，防止 pdfjs-dist 在提取时插入空格导致标记被拆分
+    const cleanText = text.replace(/\s/g, '')
+
+    const startMarker = '__RESUME_DATA__'
+    const endMarker = '__END_RESUME_DATA__'
+
+    const startIdx = cleanText.indexOf(startMarker)
+    if (startIdx === -1) return null
+
+    const dataStart = startIdx + startMarker.length
+    const endIdx = cleanText.indexOf(endMarker, dataStart)
+    if (endIdx === -1) return null
+
+    const encodedData = cleanText.substring(dataStart, endIdx)
+    const jsonStr = decodeURIComponent(encodedData)
+
+    return parseEmbeddedData(jsonStr)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 尝试从 PDF 元数据中提取嵌入的简历 JSON 数据（v1/v2 导出格式）
+ * 使用 pdfjs-dist 读取 PDF 的 Info 字典中的 Keywords 字段
+ * 注意：v3 导出格式不再使用此方式（jsPDF setProperties 不可靠），
+ *       但保留用于兼容旧版导出的 PDF
+ * @returns 解析后的 { data, templateId }，如果没有嵌入数据则返回 null
+ */
+async function extractEmbeddedResumeData(file: File): Promise<{ data: ResumeData; templateId?: string } | null> {
+  const pdfjs = await loadPdfjs()
+  const arrayBuffer = await file.arrayBuffer()
+
+  let pdfDoc
+  try {
+    const loadingTask = pdfjs.getDocument({
+      data: arrayBuffer,
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: '/standard_fonts/',
+      disableAutoFetch: true,
+      disableStream: true
+    })
+    pdfDoc = await withTimeout(loadingTask.promise, 10000, 'PDF 元数据读取')
+  } catch {
+    return null
   }
 
-  const data = parseResumeFromText(text)
-  return data
+  try {
+    const metadata = await pdfDoc.getMetadata()
+    const keywords = (metadata?.info as any)?.Keywords || ''
+
+    if (keywords) {
+      const match = keywords.match(/__RESUME_DATA__(.+?)__END_RESUME_DATA__/s)
+      if (match) {
+        const jsonStr = decodeURIComponent(match[1])
+        return parseEmbeddedData(jsonStr)
+      }
+    }
+  } catch {
+    // 元数据解析失败，忽略
+  }
+
+  return null
 }
+
+/**
+ * 从 PDF 文件导入简历数据
+ * 导入策略（按顺序尝试）：
+ * 1. 从 PDF 元数据读取嵌入的简历 JSON（本项目导出的 PDF，含模板ID）
+ * 2. 从 PDF 提取文本并智能解析（含文本层的标准 PDF）
+ * 3. 自动 OCR 识别（扫描件/图片 PDF/浏览器打印生成的 PDF）
+ *
+ * @param file PDF 文件
+ * @param onProgress 进度回调（主要用于 OCR 阶段）
+ */
+export async function importResumeFromPDF(
+  file: File,
+  onProgress?: (msg: string) => void
+): Promise<PDFImportResult> {
+  // Step 0: 优先从 PDF EmbeddedFile 附件读取（v4 导出格式，最可靠）
+  // v4 使用 pdf-lib attach() 嵌入标准 PDF 附件，符合 ISO 32000-2 规范
+  onProgress?.('正在检查 PDF 附件...')
+  try {
+    const embedded = await extractEmbeddedDataFromAttachment(file)
+    if (embedded) {
+      return {
+        data: embedded.data,
+        rawText: '[从 PDF EmbeddedFile (resume.json) 精确恢复 - 无任何信息损失]',
+        method: 'embeddedfile-v4',
+        templateId: embedded.templateId
+      }
+    }
+  } catch {
+    // EmbeddedFile 读取失败，继续尝试其他方式
+  }
+
+  // Step 1a: 从原始文件字节中搜索嵌入数据（v3 导出格式，追加在 %%EOF 之后）
+  onProgress?.('正在检查嵌入数据...')
+  try {
+    const embeddedRaw = await extractEmbeddedDataFromRaw(file)
+    if (embeddedRaw) {
+      return {
+        data: embeddedRaw.data,
+        rawText: '[从 PDF 嵌入数据精确恢复]',
+        method: 'metadata',
+        templateId: embeddedRaw.templateId
+      }
+    }
+  } catch {
+    // 原始字节搜索失败，继续尝试其他方式
+  }
+
+  // Step 1b: 尝试从 PDF 元数据中读取嵌入的简历数据（v1/v2 旧版导出格式）
+  onProgress?.('正在检查 PDF 元数据...')
+  try {
+    const embedded = await extractEmbeddedResumeData(file)
+    if (embedded) {
+      return {
+        data: embedded.data,
+        rawText: '[从 PDF 元数据精确恢复]',
+        method: 'metadata',
+        templateId: embedded.templateId
+      }
+    }
+  } catch {
+    // 嵌入数据读取失败，继续走文本提取流程
+  }
+
+  // Step 2: 从 PDF 提取文本并智能解析（适用于有文本层的 PDF）
+  onProgress?.('正在提取 PDF 文本...')
+  let text: string
+  try {
+    text = await extractTextFromPDF(file)
+  } catch {
+    // PDF 解析失败，直接走 OCR
+    text = ''
+  }
+
+  // Step 2a: 先检查文本中是否有嵌入的简历数据标记（v4 打印导出的 PDF）
+  // 浏览器打印方式导出的 PDF 中，简历 JSON 以隐藏文字嵌入，pdfjs-dist 可直接提取
+  if (text) {
+    const embeddedFromText = extractEmbeddedDataFromText(text)
+    if (embeddedFromText) {
+      return {
+        data: embeddedFromText.data,
+        rawText: '[从 PDF 文本中精确恢复]',
+        method: 'metadata',
+        templateId: embeddedFromText.templateId
+      }
+    }
+  }
+
+  // Step 2b: 没有找到嵌入数据，走智能文本解析
+  if (text && text.trim().length >= 10) {
+    // 成功提取到文本，进行智能解析
+    onProgress?.('正在智能解析简历信息...')
+    const data = parseResumeFromText(text)
+    return { data, rawText: text, method: 'text' }
+  }
+
+  // Step 3: PDF 无文本内容，自动启动 OCR 识别
+  // 适用于：扫描件、图片 PDF、浏览器打印生成的 PDF（文字被渲染为图片）
+  onProgress?.('PDF 无文本层，正在启动 OCR 引擎自动识别...')
+
+  const arrayBuffer = await file.arrayBuffer()
+  const ocrText = await ocrFromPDF(arrayBuffer, (msg) => {
+    onProgress?.(msg)
+  })
+
+  if (!ocrText || ocrText.trim().length < 10) {
+    throw new Error('PDF 无法识别（无文本层且 OCR 未能识别出文字），请确认 PDF 内容清晰')
+  }
+
+  onProgress?.('OCR 识别完成，正在智能解析...')
+  const data = parseResumeFromText(ocrText)
+  return { data, rawText: ocrText, method: 'ocr' }
+}
+

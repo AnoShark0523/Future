@@ -219,7 +219,7 @@ const handleCopyFull = async () => {
         v-for="code in filteredCodes"
         :key="code.code"
         @click="showDetail(code)"
-        :class="`glass rounded-lg p-4 cursor-pointer transition-all hover:scale-105 hover:-translate-y-1 group border-2 ${getCodeColorClass(code.category)}`"
+        :class="`relative glass rounded-lg p-4 cursor-pointer transition-all hover:scale-105 hover:-translate-y-1 group border-2 ${getCodeColorClass(code.category)}`"
       >
         <div class="text-2xl font-bold mb-1">{{ code.code }}</div>
         <div class="text-xs text-text-secondary truncate">{{ code.name }}</div>

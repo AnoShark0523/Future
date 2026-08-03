@@ -131,11 +131,14 @@ if (${randVar()} > ${randNum()}) {
 } else {
   console.log('low');
 }`,
-      () => `function ${randFunc()}(a, b) {
+      () => {
+        const fnName = randFunc()
+        return `function ${fnName}(a, b) {
   return a + b;
 }
-const ${randVar()} = ${randFunc()}(${randNum()}, ${randNum()});
-console.log(${randVar()});`,
+const ${randVar()} = ${fnName}(${randNum()}, ${randNum()});
+console.log(${randVar()});`
+      },
       () => `const ${randVar()} = [${randNum()}, ${randNum()}, ${randNum()}];
 ${randVar()}.forEach(n => {
   console.log(n * 2);
@@ -153,7 +156,9 @@ if (${randVar()}.value > 50) {
 }`
     ],
     stone: [
-      () => `function ${randFunc()}(arr) {
+      () => {
+        const fnName = randFunc()
+        return `function ${fnName}(arr) {
   let ${randVar()} = 0;
   for (let i = 0; i < arr.length; i++) {
     if (arr[i] > ${randNum()}) {
@@ -163,9 +168,13 @@ if (${randVar()}.value > 50) {
   return ${randVar()};
 }
 const ${randVar()} = [${randNum()}, ${randNum()}, ${randNum()}, ${randNum()}];
-const ${randVar()} = ${randFunc()}(${randVar()});
-console.log('Result:', ${randVar()});`,
-      () => `class ${randClass()} {
+const ${randVar()} = ${fnName}(${randVar()});
+console.log('Result:', ${randVar()});`
+      },
+      () => {
+        const className = randClass()
+        const countMethod = randMethod()
+        return `class ${className} {
   constructor(name) {
     this.name = name;
     this.data = [];
@@ -173,15 +182,20 @@ console.log('Result:', ${randVar()});`,
   add(item) {
     this.data.push(item);
   }
-  ${randMethod()}() {
+  ${countMethod}() {
     return this.data.length;
   }
 }
-const ${randVar()} = new ${randClass()}('test');
+const ${randVar()} = new ${className}('test');
 ${randVar()}.add(${randNum()});
 ${randVar()}.add(${randNum()});
-console.log(${randVar()}.${randMethod()}());`,
-      () => `const ${randVar()} = {
+console.log(${randVar()}.${countMethod}());`
+      },
+      () => {
+        const objVar = randVar()
+        const filteredVar = randVar()
+        const mappedVar = randVar()
+        return `const ${objVar} = {
   items: [${randNum()}, ${randNum()}, ${randNum()}],
   filter(min) {
     return this.items.filter(n => n >= min);
@@ -190,18 +204,24 @@ console.log(${randVar()}.${randMethod()}());`,
     return this.items.map(fn);
   }
 };
-const ${randVar()} = ${randVar()}.filter(${randNum()});
-const ${randVar()} = ${randVar()}.map(n => n * 2);
-console.log(${randVar()});
-console.log(${randVar()});`
+const ${filteredVar} = ${objVar}.filter(${randNum()});
+const ${mappedVar} = ${objVar}.map(n => n * 2);
+console.log(${filteredVar});
+console.log(${mappedVar});`
+      }
     ],
     diamond: [
-      () => `class ${randClass()} {
+      () => {
+        const className = randClass()
+        const setMethod = randMethod()
+        const getAllMethod = randMethod()
+        const filterMethod = randMethod()
+        return `class ${className} {
   constructor() {
     this.cache = new Map();
     this.count = 0;
   }
-  ${randMethod()}(key, value) {
+  ${setMethod}(key, value) {
     if (this.cache.has(key)) {
       return this.cache.get(key);
     }
@@ -209,23 +229,27 @@ console.log(${randVar()});`
     this.cache.set(key, value);
     return value;
   }
-  ${randMethod()}() {
+  ${getAllMethod}() {
     const ${randVar()} = [];
     for (const [k, v] of this.cache.entries()) {
       ${randVar()}.push({ key: k, value: v });
     }
     return ${randVar()};
   }
-  ${randMethod()}(predicate) {
-    return this.getAll().filter(predicate);
+  ${filterMethod}(predicate) {
+    return this.${getAllMethod}().filter(predicate);
   }
 }
-const ${randVar()} = new ${randClass()}();
-${randVar()}.${randMethod()}('a', ${randNum()});
-${randVar()}.${randMethod()}('b', ${randNum()});
-const ${randVar()} = ${randVar()}.${randMethod()}(item => item.value > ${randNum()});
-console.log(${randVar()});`,
-      () => `async function ${randFunc()}(url) {
+const ${randVar()} = new ${className}();
+${randVar()}.${setMethod}('a', ${randNum()});
+${randVar()}.${setMethod}('b', ${randNum()});
+const ${randVar()} = ${randVar()}.${filterMethod}(item => item.value > ${randNum()});
+console.log(${randVar()});`
+      },
+      () => {
+        const fetchFn = randFunc()
+        const processFn = randFunc()
+        return `async function ${fetchFn}(url) {
   try {
     const response = await fetch(url);
     if (!response.ok) {
@@ -238,7 +262,7 @@ console.log(${randVar()});`,
     return null;
   }
 }
-function ${randFunc()}(items) {
+function ${processFn}(items) {
   return items
     .filter(item => item.active)
     .map(item => ({
@@ -253,11 +277,20 @@ const ${randVar()} = [
   { id: 2, name: 'bar', active: false, score: ${randNum()} },
   { id: 3, name: 'baz', active: true, score: ${randNum()} }
 ];
-const ${randVar()} = ${randFunc()}(${randVar()});
+const ${randVar()} = ${processFn}(${randVar()});
 console.log(${randVar()});`
+      }
     ],
     african: [
-      () => `class ${randClass()} {
+      () => {
+        const className = randClass()
+        const setMethod = randMethod()
+        const getMethod = randMethod()
+        const removeMethod = randMethod()
+        const getHistoryMethod = randMethod()
+        const filterMethod = randMethod()
+        const statsMethod = randMethod()
+        return `class ${className} {
   constructor(config) {
     this.config = { ...config };
     this.state = new Map();
@@ -273,7 +306,7 @@ console.log(${randVar()});`
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
-  ${randMethod()}(key, value) {
+  ${setMethod}(key, value) {
     const oldValue = this.state.get(key);
     const newValue = this.middleware.reduce(
       (v, mw) => mw(key, v, oldValue),
@@ -284,18 +317,18 @@ console.log(${randVar()});`
     this.listeners.forEach(fn => fn(key, newValue, oldValue));
     return this;
   }
-  ${randMethod()}(key) {
+  ${getMethod}(key) {
     return this.state.get(key);
   }
-  ${randMethod()}(key) {
+  ${removeMethod}(key) {
     const value = this.state.get(key);
     this.state.delete(key);
     return value;
   }
-  ${randMethod()}() {
+  ${getHistoryMethod}() {
     return this.history.slice(-10);
   }
-  ${randMethod()}(predicate) {
+  ${filterMethod}(predicate) {
     const result = [];
     for (const [key, value] of this.state.entries()) {
       if (predicate(key, value)) {
@@ -304,7 +337,7 @@ console.log(${randVar()});`
     }
     return result;
   }
-  ${randMethod()}() {
+  ${statsMethod}() {
     return {
       size: this.state.size,
       listeners: this.listeners.size,
@@ -313,13 +346,14 @@ console.log(${randVar()});`
     };
   }
 }
-const ${randVar()} = new ${randClass()}({ debug: true });
+const ${randVar()} = new ${className}({ debug: true });
 ${randVar()}.use((key, value) => typeof value === 'number' ? value * 2 : value);
 ${randVar()}.subscribe((key, newValue) => console.log(key, newValue));
-${randVar()}.${randMethod()}('count', ${randNum()});
-${randVar()}.${randMethod()}('name', 'test');
-const ${randVar()} = ${randVar()}.${randMethod()}();
+${randVar()}.${setMethod}('count', ${randNum()});
+${randVar()}.${setMethod}('name', 'test');
+const ${randVar()} = ${randVar()}.${statsMethod}();
 console.log(${randVar()});`
+      }
     ]
   }
 
@@ -348,12 +382,14 @@ const ${randVar()}: User = {
 console.log(${randVar()}.name);`
     ],
     stone: [
-      () => `interface Repository<T> {
+      () => {
+        const className = randClass()
+        return `interface Repository<T> {
   items: T[];
   add(item: T): void;
   getAll(): T[];
 }
-class ${randClass()}<T> implements Repository<T> {
+class ${className}<T> implements Repository<T> {
   items: T[] = [];
   add(item: T): void {
     this.items.push(item);
@@ -362,27 +398,34 @@ class ${randClass()}<T> implements Repository<T> {
     return [...this.items];
   }
 }
-const ${randVar()} = new ${randClass()}<number>();
+const ${randVar()} = new ${className}<number>();
 ${randVar()}.add(${randNum()});
 ${randVar()}.add(${randNum()});
-console.log(${randVar()}.getAll());`,
-      () => `type Status = 'active' | 'inactive' | 'pending';
+console.log(${randVar()}.getAll());`
+      },
+      () => {
+        const fnName = randFunc()
+        return `type Status = 'active' | 'inactive' | 'pending';
 interface Task {
   id: number;
   name: string;
   status: Status;
 }
-function ${randFunc()}(tasks: Task[]): Task[] {
+function ${fnName}(tasks: Task[]): Task[] {
   return tasks.filter(t => t.status === 'active');
 }
 const ${randVar()}: Task[] = [
   { id: 1, name: 'A', status: 'active' },
   { id: 2, name: 'B', status: 'inactive' }
 ];
-console.log(${randFunc()}(${randVar()}));`
+console.log(${fnName}(${randVar()}));`
+      }
     ],
     diamond: [
-      () => `abstract class ${randClass()}<T> {
+      () => {
+        const baseClass = randClass()
+        const getAllMethod = randMethod()
+        return `abstract class ${baseClass}<T> {
   protected data: T[] = [];
   abstract validate(item: T): boolean;
   add(item: T): boolean {
@@ -401,7 +444,7 @@ console.log(${randFunc()}(${randVar()}));`
     });
     return removed;
   }
-  ${randMethod()}(): T[] {
+  ${getAllMethod}(): T[] {
     return [...this.data];
   }
 }
@@ -410,7 +453,7 @@ interface User {
   name: string;
   age: number;
 }
-class UserStore extends ${randClass()}<User> {
+class UserStore extends ${baseClass}<User> {
   validate(user: User): boolean {
     return user.id > 0 && user.name.length > 0 && user.age >= 0;
   }
@@ -421,17 +464,23 @@ class UserStore extends ${randClass()}<User> {
 const ${randVar()} = new UserStore();
 ${randVar()}.add({ id: 1, name: 'Alice', age: ${randNum()} });
 ${randVar()}.add({ id: 2, name: 'Bob', age: ${randNum()} });
-console.log(${randVar()}.${randMethod()}());
+console.log(${randVar()}.${getAllMethod}());
 console.log(${randVar()}.findByAge(20));`
+      }
     ],
     african: [
-      () => `type Result<T, E = Error> =
+      () => {
+        const className = randClass()
+        const countMethod = randMethod()
+        const removeMethod = randMethod()
+        const removeVar = randVar()
+        return `type Result<T, E = Error> =
   | { success: true; data: T }
   | { success: false; error: E };
 interface Pipeline<T> {
   execute(input: T): Promise<Result<T>>;
 }
-class ${randClass()}<T> implements Pipeline<T> {
+class ${className}<T> implements Pipeline<T> {
   private steps: Array<(data: T) => Promise<T>> = [];
   private retries: number;
   private logger?: (msg: string) => void;
@@ -465,13 +514,13 @@ class ${randClass()}<T> implements Pipeline<T> {
     }
     return { success: true, data };
   }
-  ${randMethod()}(): number {
+  ${countMethod}(): number {
     return this.steps.length;
   }
-  ${randMethod()}(name: string): boolean {
-    const ${randVar()} = this.steps.length;
-    this.steps = this.steps.filter((s, i) => i !== ${randVar()} - 1);
-    return this.steps.length < ${randVar()};
+  ${removeMethod}(name: string): boolean {
+    const ${removeVar} = this.steps.length;
+    this.steps = this.steps.filter((s, i) => i !== ${removeVar} - 1);
+    return this.steps.length < ${removeVar};
   }
 }
 interface DataItem {
@@ -479,17 +528,18 @@ interface DataItem {
   value: string;
 }
 async function main() {
-  const ${randVar()} = new ${randClass()}<DataItem>(2);
-  ${randVar()}.setLogger(msg => console.log('[LOG]', msg));
-  ${randVar()}.use(async data => ({ ...data, value: data.value.toUpperCase() }));
-  ${randVar()}.use(async data => ({ ...data, id: data.id * 10 }));
-  const ${randVar()} = await ${randVar()}.execute({
+  const pipeline = new ${className}<DataItem>(2);
+  pipeline.setLogger(msg => console.log('[LOG]', msg));
+  pipeline.use(async data => ({ ...data, value: data.value.toUpperCase() }));
+  pipeline.use(async data => ({ ...data, id: data.id * 10 }));
+  const ${randVar()} = await pipeline.execute({
     id: ${randNum()},
     value: 'test'
   });
   console.log(${randVar()});
 }
 main();`
+      }
     ]
   }
   return rand(templates[difficulty])()
@@ -515,61 +565,81 @@ for n in ${randVar()}:
     print(n * 2)`
     ],
     stone: [
-      () => `class ${randClass()}:
+      () => {
+        const className = randClass()
+        const countMethod = randMethod().toLowerCase()
+        return `class ${className}:
     def __init__(self, name):
         self.name = name
         self.data = []
     def add(self, item):
         self.data.append(item)
-    def ${randMethod().toLowerCase()}(self):
+    def ${countMethod}(self):
         return len(self.data)
-${randVar()} = ${randClass()}("test")
+${randVar()} = ${className}("test")
 ${randVar()}.add(${randNum()})
 ${randVar()}.add(${randNum()})
-print(${randVar()}.${randMethod().toLowerCase()}())`,
-      () => `def ${randFunc()}(items):
+print(${randVar()}.${countMethod}())`
+      },
+      () => {
+        const fnName = randFunc()
+        return `def ${fnName}(items):
     ${randVar()} = 0
     for item in items:
         if item > ${randNum()}:
             ${randVar()} += item
     return ${randVar()}
 ${randVar()} = [${randNum()}, ${randNum()}, ${randNum()}, ${randNum()}]
-${randVar()} = ${randFunc()}(${randVar()})
+${randVar()} = ${fnName}(${randVar()})
 print("Result:", ${randVar()})`
+      }
     ],
     diamond: [
-      () => `from typing import List, Optional
-class ${randClass()}:
+      () => {
+        const className = randClass()
+        const setMethod = randMethod().toLowerCase()
+        const getAllMethod = randMethod().toLowerCase()
+        const filterMethod = randMethod().toLowerCase()
+        const statsMethod = randMethod().toLowerCase()
+        return `from typing import List, Optional
+class ${className}:
     def __init__(self):
         self._cache = {}
         self._count = 0
-    def ${randMethod().toLowerCase()}(self, key: str, value: int) -> int:
+    def ${setMethod}(self, key: str, value: int) -> int:
         if key in self._cache:
             return self._cache[key]
         self._count += 1
         self._cache[key] = value
         return value
-    def ${randMethod().toLowerCase()}(self) -> List[tuple]:
+    def ${getAllMethod}(self) -> List[tuple]:
         return list(self._cache.items())
-    def ${randMethod().toLowerCase()}(self, predicate) -> List[tuple]:
+    def ${filterMethod}(self, predicate) -> List[tuple]:
         return [(k, v) for k, v in self._cache.items() if predicate(k, v)]
-    def ${randMethod().toLowerCase()}(self) -> dict:
+    def ${statsMethod}(self) -> dict:
         return {
             'size': len(self._cache),
             'count': self._count
         }
-${randVar()} = ${randClass()}()
-${randVar()}.${randMethod().toLowerCase()}("a", ${randNum()})
-${randVar()}.${randMethod().toLowerCase()}("b", ${randNum()})
-${randVar()} = ${randVar()}.${randMethod().toLowerCase()}(lambda k, v: v > ${randNum()})
+${randVar()} = ${className}()
+${randVar()}.${setMethod}("a", ${randNum()})
+${randVar()}.${setMethod}("b", ${randNum()})
+${randVar()} = ${randVar()}.${filterMethod}(lambda k, v: v > ${randNum()})
 print(${randVar()})
-print(${randVar()}.${randMethod().toLowerCase()}())`
+print(${randVar()}.${statsMethod}())`
+      }
     ],
     african: [
-      () => `from abc import ABC, abstractmethod
+      () => {
+        const baseClass = randClass()
+        const getAllMethod = randMethod().toLowerCase()
+        const mapMethod = randMethod().toLowerCase()
+        const statsMethod = randMethod().toLowerCase()
+        const getHistoryMethod = randMethod().toLowerCase()
+        return `from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, List, Optional, Callable, Any
 T = TypeVar('T')
-class ${randClass()}(ABC, Generic[T]):
+class ${baseClass}(ABC, Generic[T]):
     def __init__(self):
         self._data: List[T] = []
         self._listeners: List[Callable[[T], None]] = []
@@ -598,19 +668,19 @@ class ${randClass()}(ABC, Generic[T]):
         removed = []
         self._data = [x for x in self._data if not (predicate(x) and removed.append(x) is None)]
         return removed
-    def ${randMethod().toLowerCase()}(self) -> List[T]:
+    def ${getAllMethod}(self) -> List[T]:
         return list(self._data)
-    def ${randMethod().toLowerCase()}(self, fn: Callable[[T], Any]) -> List[Any]:
+    def ${mapMethod}(self, fn: Callable[[T], Any]) -> List[Any]:
         return [fn(item) for item in self._data]
-    def ${randMethod().toLowerCase()}(self) -> dict:
+    def ${statsMethod}(self) -> dict:
         return {
             'size': len(self._data),
             'listeners': len(self._listeners),
             'history': len(self._history)
         }
-    def ${randMethod().toLowerCase()}(self, n: int = 10) -> List[dict]:
+    def ${getHistoryMethod}(self, n: int = 10) -> List[dict]:
         return self._history[-n:]
-class UserStore(${randClass()}[dict]):
+class UserStore(${baseClass}[dict]):
     def validate(self, item: dict) -> bool:
         return 'id' in item and 'name' in item
     def find_by_name(self, name: str) -> Optional[dict]:
@@ -622,9 +692,10 @@ ${randVar()} = UserStore()
 ${randVar()}.subscribe(lambda u: print(f"Added: {u['name']}"))
 ${randVar()}.add({'id': 1, 'name': 'Alice', 'age': ${randNum()}})
 ${randVar()}.add({'id': 2, 'name': 'Bob', 'age': ${randNum()}})
-${randVar()} = ${randVar()}.${randMethod().toLowerCase()}(lambda u: u['age'] > ${randNum()})
+${randVar()} = ${randVar()}.${mapMethod}(lambda u: u['age'] > ${randNum()})
 print(${randVar()})
-print(${randVar()}.${randMethod().toLowerCase()}())`
+print(${randVar()}.${statsMethod}())`
+      }
     ]
   }
   return rand(templates[difficulty])()
@@ -645,15 +716,18 @@ function genJava(difficulty: Difficulty): string {
         }
     }
 }`,
-      () => `public class Main {
-    public static int ${randFunc().substring(0, 1).toUpperCase() + randFunc().slice(1)}(int a, int b) {
+      () => {
+        const fnName = randFunc().substring(0, 1).toUpperCase() + randFunc().slice(1)
+        return `public class Main {
+    public static int ${fnName}(int a, int b) {
         return a + b;
     }
     public static void main(String[] args) {
-        int ${randVar()} = ${randFunc().substring(0, 1).toUpperCase() + randFunc().slice(1)}(${randNum()}, ${randNum()});
+        int ${randVar()} = ${fnName}(${randNum()}, ${randNum()});
         System.out.println(${randVar()});
     }
 }`
+      }
     ],
     stone: [
       () => `import java.util.ArrayList;
@@ -673,34 +747,42 @@ public class Main {
         System.out.println("Result: " + ${randVar()});
     }
 }`,
-      () => `import java.util.HashMap;
+      () => {
+        const className = randClass()
+        const m1 = randMethod().toLowerCase()
+        const m2 = randMethod().toLowerCase()
+        const m3 = randMethod().toLowerCase()
+        return `import java.util.HashMap;
 import java.util.Map;
-class ${randClass()} {
+class ${className} {
     private Map<String, Integer> data = new HashMap<>();
-    public void ${randMethod().toLowerCase()}(String key, int value) {
+    public void ${m1}(String key, int value) {
         data.put(key, value);
     }
-    public int ${randMethod().toLowerCase()}(String key) {
+    public int ${m2}(String key) {
         return data.getOrDefault(key, 0);
     }
-    public int ${randMethod().toLowerCase()}() {
+    public int ${m3}() {
         return data.size();
     }
 }
 public class Main {
     public static void main(String[] args) {
-        ${randClass()} ${randVar()} = new ${randClass()}();
-        ${randVar()}.${randMethod().toLowerCase()}("a", ${randNum()});
-        ${randVar()}.${randMethod().toLowerCase()}("b", ${randNum()});
-        System.out.println(${randVar()}.${randMethod().toLowerCase()}());
+        ${className} ${randVar()} = new ${className}();
+        ${randVar()}.${m1}("a", ${randNum()});
+        ${randVar()}.${m1}("b", ${randNum()});
+        System.out.println(${randVar()}.${m3}());
     }
 }`
+      }
     ],
     diamond: [
-      () => `import java.util.*;
+      () => {
+        const baseClass = randClass()
+        return `import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-abstract class ${randClass()}<T> {
+abstract class ${baseClass}<T> {
     protected List<T> data = new ArrayList<>();
     protected List<String> history = new ArrayList<>();
     public abstract boolean validate(T item);
@@ -746,7 +828,7 @@ class User {
         return "User(" + id + ", " + name + ")";
     }
 }
-class UserStore extends ${randClass()}<User> {
+class UserStore extends ${baseClass}<User> {
     @Override
     public boolean validate(User user) {
         return user.id > 0 && user.name != null;
@@ -765,14 +847,18 @@ public class Main {
         System.out.println(${randVar()}.stats());
     }
 }`
+      }
     ],
     african: [
-      () => `import java.util.*;
+      () => {
+        const ifaceName = randClass()
+        const implName = `${ifaceName}Impl`
+        return `import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.*;
-interface ${randClass()}<T> {
+interface ${ifaceName}<T> {
     Result<T> process(T input) throws Exception;
-    default <R> ${randClass()}<R> map(Function<T, R> mapper) {
+    default <R> ${ifaceName}<R> map(Function<T, R> mapper) {
         return input -> {
             Result<T> result = this.process(input);
             if (result.isSuccess()) {
@@ -801,18 +887,18 @@ final class Result<T> {
     public T getData() { return data; }
     public String getError() { return error; }
 }
-class ${randClass()}Impl<T> implements ${randClass()}<T> {
+class ${implName}<T> implements ${ifaceName}<T> {
     private final List<Function<T, T>> steps = new ArrayList<>();
     private final int maxRetries;
     private Consumer<String> logger = s -> {};
-    public ${randClass()}Impl(int maxRetries) {
+    public ${implName}(int maxRetries) {
         this.maxRetries = maxRetries;
     }
-    public ${randClass()}Impl<T> step(Function<T, T> step) {
+    public ${implName}<T> step(Function<T, T> step) {
         steps.add(step);
         return this;
     }
-    public ${randClass()}Impl<T> logger(Consumer<String> logger) {
+    public ${implName}<T> logger(Consumer<String> logger) {
         this.logger = logger;
         return this;
     }
@@ -846,7 +932,7 @@ class ${randClass()}Impl<T> implements ${randClass()}<T> {
 }
 public class Main {
     public static void main(String[] args) {
-        ${randClass()}Impl<String> ${randVar()} = new ${randClass()}Impl<>(3);
+        ${implName}<String> ${randVar()} = new ${implName}<>(3);
         ${randVar()}.logger(s -> System.out.println("[LOG] " + s));
         ${randVar()}.step(s -> s.toUpperCase());
         ${randVar()}.step(s -> s + "!");
@@ -860,6 +946,7 @@ public class Main {
         System.out.println(${randVar()}.stats());
     }
 }`
+      }
     ]
   }
   return rand(templates[difficulty])()
@@ -881,16 +968,19 @@ int main() {
     }
     return 0;
 }`,
-      () => `#include <iostream>
+      () => {
+        const fnName = randFunc()
+        return `#include <iostream>
 using namespace std;
-int ${randFunc()}(int a, int b) {
+int ${fnName}(int a, int b) {
     return a + b;
 }
 int main() {
-    int ${randVar()} = ${randFunc()}(${randNum()}, ${randNum()});
+    int ${randVar()} = ${fnName}(${randNum()}, ${randNum()});
     cout << ${randVar()} << endl;
     return 0;
 }`
+      }
     ],
     stone: [
       () => `#include <iostream>
@@ -907,41 +997,49 @@ int main() {
     cout << "Result: " << ${randVar()} << endl;
     return 0;
 }`,
-      () => `#include <iostream>
+      () => {
+        const className = randClass()
+        const setMethod = randMethod().toLowerCase()
+        const getMethod = randMethod().toLowerCase()
+        const sizeMethod = randMethod().toLowerCase()
+        return `#include <iostream>
 #include <map>
 #include <string>
 using namespace std;
-class ${randClass()} {
+class ${className} {
 private:
     map<string, int> data;
 public:
-    void ${randMethod().toLowerCase()}(string key, int value) {
+    void ${setMethod}(string key, int value) {
         data[key] = value;
     }
-    int ${randMethod().toLowerCase()}(string key) {
+    int ${getMethod}(string key) {
         auto it = data.find(key);
         return it != data.end() ? it->second : 0;
     }
-    int ${randMethod().toLowerCase()}() {
+    int ${sizeMethod}() {
         return data.size();
     }
 };
 int main() {
-    ${randClass()} ${randVar()};
-    ${randVar()}.${randMethod().toLowerCase()}("a", ${randNum()});
-    ${randVar()}.${randMethod().toLowerCase()}("b", ${randNum()});
-    cout << ${randVar()}.${randMethod().toLowerCase()}() << endl;
+    ${className} ${randVar()};
+    ${randVar()}.${setMethod}("a", ${randNum()});
+    ${randVar()}.${setMethod}("b", ${randNum()});
+    cout << ${randVar()}.${sizeMethod}() << endl;
     return 0;
 }`
+      }
     ],
     diamond: [
-      () => `#include <iostream>
+      () => {
+        const baseClass = randClass()
+        return `#include <iostream>
 #include <vector>
 #include <algorithm>
 #include <memory>
 using namespace std;
 template<typename T>
-class ${randClass()} {
+class ${baseClass} {
 private:
     vector<T> data;
     vector<string> history;
@@ -980,7 +1078,7 @@ struct User {
     string name;
     int age;
 };
-class UserStore : public ${randClass()}<User> {
+class UserStore : public ${baseClass}<User> {
 public:
     bool validate(const User& u) override {
         return u.id > 0 && !u.name.empty();
@@ -999,9 +1097,17 @@ int main() {
     cout << "Found: " << ${randVar()}.size() << endl;
     return 0;
 }`
+      }
     ],
     african: [
-      () => `#include <iostream>
+      () => {
+        const className = randClass()
+        const setMethod = randMethod().toLowerCase()
+        const getMethod = randMethod().toLowerCase()
+        const removeMethod = randMethod().toLowerCase()
+        const filterMethod = randMethod().toLowerCase()
+        const statsMethod = randMethod().toLowerCase()
+        return `#include <iostream>
 #include <vector>
 #include <map>
 #include <memory>
@@ -1009,14 +1115,14 @@ int main() {
 #include <algorithm>
 using namespace std;
 template<typename T>
-class ${randClass()} {
+class ${className} {
 private:
     map<string, T> state;
     vector<string> history;
     vector<function<T(const string&, const T&, const T*)>> middleware;
     vector<function<void(const string&, const T&, const T*)>> listeners;
 public:
-    ${randClass()}& use(function<T(const string&, const T&, const T*)> mw) {
+    ${className}& use(function<T(const string&, const T&, const T*)> mw) {
         middleware.push_back(mw);
         return *this;
     }
@@ -1027,7 +1133,7 @@ public:
             if (it != listeners.end()) listeners.erase(it);
         };
     }
-    void ${randMethod().toLowerCase()}(const string& key, const T& value) {
+    void ${setMethod}(const string& key, const T& value) {
         const T* oldPtr = state.count(key) ? &state[key] : nullptr;
         T newValue = value;
         for (auto& mw : middleware) {
@@ -1039,11 +1145,11 @@ public:
             fn(key, newValue, oldPtr);
         }
     }
-    T ${randMethod().toLowerCase()}(const string& key, const T& defaultValue = T()) {
+    T ${getMethod}(const string& key, const T& defaultValue = T()) {
         auto it = state.find(key);
         return it != state.end() ? it->second : defaultValue;
     }
-    bool ${randMethod().toLowerCase()}(const string& key) {
+    bool ${removeMethod}(const string& key) {
         auto it = state.find(key);
         if (it == state.end()) return false;
         state.erase(it);
@@ -1057,7 +1163,7 @@ public:
         return result;
     }
     template<typename Pred>
-    vector<pair<string, T>> ${randMethod().toLowerCase()}(Pred pred) {
+    vector<pair<string, T>> ${filterMethod}(Pred pred) {
         vector<pair<string, T>> result;
         for (const auto& p : state) {
             if (pred(p.first, p.second)) {
@@ -1066,7 +1172,7 @@ public:
         }
         return result;
     }
-    map<string, size_t> ${randMethod().toLowerCase()}() const {
+    map<string, size_t> ${statsMethod}() const {
         map<string, size_t> stats;
         stats["state"] = state.size();
         stats["history"] = history.size();
@@ -1080,27 +1186,28 @@ public:
     }
 };
 int main() {
-    ${randClass()}<int> ${randVar()};
+    ${className}<int> ${randVar()};
     ${randVar()}.use([](const string& key, int val, const int* old) {
         return val * 2;
     });
     auto unsub = ${randVar()}.subscribe([](const string& key, int val, const int* old) {
         cout << "Changed " << key << " to " << val << endl;
     });
-    ${randVar()}.${randMethod().toLowerCase()}("count", ${randNum()});
-    ${randVar()}.${randMethod().toLowerCase()}("score", ${randNum()});
-    auto ${randVar()} = ${randVar()}.${randMethod().toLowerCase()}([](const string& k, int v) {
+    ${randVar()}.${setMethod}("count", ${randNum()});
+    ${randVar()}.${setMethod}("score", ${randNum()});
+    auto ${randVar()} = ${randVar()}.${filterMethod}([](const string& k, int v) {
         return v > ${randNum()};
     });
     for (const auto& p : ${randVar()}) {
         cout << p.first << ": " << p.second << endl;
     }
-    auto stats = ${randVar()}.${randMethod().toLowerCase()}();
+    auto stats = ${randVar()}.${statsMethod}();
     for (const auto& p : stats) {
         cout << p.first << " = " << p.second << endl;
     }
     return 0;
 }`
+      }
     ]
   }
   return rand(templates[difficulty])()
@@ -1121,15 +1228,18 @@ int main() {
     }
     return 0;
 }`,
-      () => `#include <stdio.h>
-int ${randFunc()}(int a, int b) {
+      () => {
+        const fnName = randFunc()
+        return `#include <stdio.h>
+int ${fnName}(int a, int b) {
     return a + b;
 }
 int main() {
-    int ${randVar()} = ${randFunc()}(${randNum()}, ${randNum()});
+    int ${randVar()} = ${fnName}(${randNum()}, ${randNum()});
     printf("%d\\n", ${randVar()});
     return 0;
 }`
+      }
     ],
     stone: [
       () => `#include <stdio.h>
@@ -1353,20 +1463,25 @@ func main() {
         fmt.Println("low")
     }
 }`,
-      () => `package main
+      () => {
+        const fnName = randFunc()
+        return `package main
 import "fmt"
-func ${randFunc()}(a, b int) int {
+func ${fnName}(a, b int) int {
     return a + b
 }
 func main() {
-    ${randVar()} := ${randFunc()}(${randNum()}, ${randNum()})
+    ${randVar()} := ${fnName}(${randNum()}, ${randNum()})
     fmt.Println(${randVar()})
 }`
+      }
     ],
     stone: [
-      () => `package main
+      () => {
+        const fnName = randFunc()
+        return `package main
 import "fmt"
-func ${randFunc()}(items []int) int {
+func ${fnName}(items []int) int {
     ${randVar()} := 0
     for _, n := range items {
         if n > ${randNum()} {
@@ -1377,30 +1492,38 @@ func ${randFunc()}(items []int) int {
 }
 func main() {
     ${randVar()} := []int{${randNum()}, ${randNum()}, ${randNum()}, ${randNum()}}
-    ${randVar()} := ${randFunc()}(${randVar()})
+    ${randVar()} := ${fnName}(${randVar()})
     fmt.Println("Result:", ${randVar()})
-}`,
-      () => `package main
+}`
+      },
+      () => {
+        const className = randClass()
+        const countMethod = randMethod().toLowerCase()
+        return `package main
 import "fmt"
-type ${randClass()} struct {
+type ${className} struct {
     name string
     data []int
 }
-func (s *${randClass()}) Add(item int) {
+func (s *${className}) Add(item int) {
     s.data = append(s.data, item)
 }
-func (s *${randClass()}) ${randMethod().toLowerCase()}() int {
+func (s *${className}) ${countMethod}() int {
     return len(s.data)
 }
 func main() {
-    ${randVar()} := &${randClass()}{name: "test"}
+    ${randVar()} := &${className}{name: "test"}
     ${randVar()}.Add(${randNum()})
     ${randVar()}.Add(${randNum()})
-    fmt.Println(${randVar()}.${randMethod().toLowerCase()}())
+    fmt.Println(${randVar()}.${countMethod}())
 }`
+      }
     ],
     diamond: [
-      () => `package main
+      () => {
+        const className = randClass()
+        const filterMethod = randMethod().toLowerCase()
+        return `package main
 import (
     "fmt"
     "sort"
@@ -1410,17 +1533,17 @@ type User struct {
     Name string
     Age  int
 }
-type ${randClass()} struct {
+type ${className} struct {
     users []User
 }
-func (s *${randClass()}) Add(u User) bool {
+func (s *${className}) Add(u User) bool {
     if u.ID <= 0 || u.Name == "" {
         return false
     }
     s.users = append(s.users, u)
     return true
 }
-func (s *${randClass()}) FindByMinAge(minAge int) []User {
+func (s *${className}) FindByMinAge(minAge int) []User {
     var result []User
     for _, u := range s.users {
         if u.Age >= minAge {
@@ -1429,12 +1552,12 @@ func (s *${randClass()}) FindByMinAge(minAge int) []User {
     }
     return result
 }
-func (s *${randClass()}) SortByName() {
+func (s *${className}) SortByName() {
     sort.Slice(s.users, func(i, j int) bool {
         return s.users[i].Name < s.users[j].Name
     })
 }
-func (s *${randClass()}) ${randMethod().toLowerCase()}(fn func(User) bool) []User {
+func (s *${className}) ${filterMethod}(fn func(User) bool) []User {
     var result []User
     for _, u := range s.users {
         if fn(u) {
@@ -1443,24 +1566,27 @@ func (s *${randClass()}) ${randMethod().toLowerCase()}(fn func(User) bool) []Use
     }
     return result
 }
-func (s *${randClass()}) Size() int {
+func (s *${className}) Size() int {
     return len(s.users)
 }
 func main() {
-    ${randVar()} := &${randClass()}{}
+    ${randVar()} := &${className}{}
     ${randVar()}.Add(User{ID: 1, Name: "Alice", Age: ${randNum()}})
     ${randVar()}.Add(User{ID: 2, Name: "Bob", Age: ${randNum()}})
     ${randVar()}.Add(User{ID: 3, Name: "Charlie", Age: ${randNum()}})
     ${randVar()}.SortByName()
-    ${randVar()} := ${randVar()}.${randMethod().toLowerCase()}(func(u User) bool {
+    ${randVar()} := ${randVar()}.${filterMethod}(func(u User) bool {
         return u.Age > ${randNum()}
     })
     fmt.Println("All:", ${randVar()}.Size())
     fmt.Println("Filtered:", len(${randVar()}))
 }`
+      }
     ],
     african: [
-      () => `package main
+      () => {
+        const className = randClass()
+        return `package main
 import (
     "errors"
     "fmt"
@@ -1477,25 +1603,25 @@ func success(data interface{}) Result {
 func failure(err error) Result {
     return Result{Success: false, Error: err}
 }
-type ${randClass()}[T any] struct {
+type ${className}[T any] struct {
     mu          sync.RWMutex
     data        map[string]T
     middleware  []func(string, T, *T) T
     subscribers []func(string, T, *T)
     history     []string
 }
-func New${randClass()}[T any]() *${randClass()}[T] {
-    return &${randClass()}[T]{
+func New${className}[T any]() *${className}[T] {
+    return &${className}[T]{
         data: make(map[string]T),
     }
 }
-func (s *${randClass()}[T]) Use(mw func(string, T, *T) T) *${randClass()}[T] {
+func (s *${className}[T]) Use(mw func(string, T, *T) T) *${className}[T] {
     s.mu.Lock()
     defer s.mu.Unlock()
     s.middleware = append(s.middleware, mw)
     return s
 }
-func (s *${randClass()}[T]) Subscribe(fn func(string, T, *T)) func() {
+func (s *${className}[T]) Subscribe(fn func(string, T, *T)) func() {
     s.mu.Lock()
     defer s.mu.Unlock()
     idx := len(s.subscribers)
@@ -1506,7 +1632,7 @@ func (s *${randClass()}[T]) Subscribe(fn func(string, T, *T)) func() {
         s.subscribers = append(s.subscribers[:idx], s.subscribers[idx+1:]...)
     }
 }
-func (s *${randClass()}[T]) Set(key string, value T) {
+func (s *${className}[T]) Set(key string, value T) {
     s.mu.Lock()
     var oldValue *T
     if v, ok := s.data[key]; ok {
@@ -1525,13 +1651,13 @@ func (s *${randClass()}[T]) Set(key string, value T) {
         fn(key, newValue, oldValue)
     }
 }
-func (s *${randClass()}[T]) Get(key string) (T, bool) {
+func (s *${className}[T]) Get(key string) (T, bool) {
     s.mu.RLock()
     defer s.mu.RUnlock()
     v, ok := s.data[key]
     return v, ok
 }
-func (s *${randClass()}[T]) Delete(key string) bool {
+func (s *${className}[T]) Delete(key string) bool {
     s.mu.Lock()
     defer s.mu.Unlock()
     if _, ok := s.data[key]; !ok {
@@ -1540,7 +1666,7 @@ func (s *${randClass()}[T]) Delete(key string) bool {
     delete(s.data, key)
     return true
 }
-func (s *${randClass()}[T]) Filter(pred func(string, T) bool) map[string]T {
+func (s *${className}[T]) Filter(pred func(string, T) bool) map[string]T {
     s.mu.RLock()
     defer s.mu.RUnlock()
     result := make(map[string]T)
@@ -1551,7 +1677,7 @@ func (s *${randClass()}[T]) Filter(pred func(string, T) bool) map[string]T {
     }
     return result
 }
-func (s *${randClass()}[T]) Keys() []string {
+func (s *${className}[T]) Keys() []string {
     s.mu.RLock()
     defer s.mu.RUnlock()
     keys := make([]string, 0, len(s.data))
@@ -1560,7 +1686,7 @@ func (s *${randClass()}[T]) Keys() []string {
     }
     return keys
 }
-func (s *${randClass()}[T]) Stats() map[string]int {
+func (s *${className}[T]) Stats() map[string]int {
     s.mu.RLock()
     defer s.mu.RUnlock()
     return map[string]int{
@@ -1571,7 +1697,7 @@ func (s *${randClass()}[T]) Stats() map[string]int {
     }
 }
 func main() {
-    ${randVar()} := New${randClass()}[int]()
+    ${randVar()} := New${className}[int]()
     ${randVar()}.Use(func(key string, val int, old *int) int {
         return val * 2
     })
@@ -1588,6 +1714,7 @@ func main() {
     fmt.Println("Filtered:", ${randVar()})
     fmt.Println("Stats:", ${randVar()}.Stats())
 }`
+      }
     ]
   }
   return rand(templates[difficulty])()
@@ -1606,16 +1733,21 @@ function genRust(difficulty: Difficulty): string {
         println!("low");
     }
 }`,
-      () => `fn ${randFunc()}(a: i32, b: i32) -> i32 {
+      () => {
+        const fnName = randFunc()
+        return `fn ${fnName}(a: i32, b: i32) -> i32 {
     a + b
 }
 fn main() {
-    let ${randVar()} = ${randFunc()}(${randNum()}, ${randNum()});
+    let ${randVar()} = ${fnName}(${randNum()}, ${randNum()});
     println!("{}", ${randVar()});
 }`
+      }
     ],
     stone: [
-      () => `fn ${randFunc()}(items: &[i32]) -> i32 {
+      () => {
+        const fnName = randFunc()
+        return `fn ${fnName}(items: &[i32]) -> i32 {
     let mut ${randVar()} = 0;
     for &n in items {
         if n > ${randNum()} {
@@ -1626,16 +1758,20 @@ fn main() {
 }
 fn main() {
     let ${randVar()} = [${randNum()}, ${randNum()}, ${randNum()}, ${randNum()}];
-    let ${randVar()} = ${randFunc()}(&${randVar()});
+    let ${randVar()} = ${fnName}(&${randVar()});
     println!("Result: {}", ${randVar()});
-}`,
-      () => `struct ${randClass()} {
+}`
+      },
+      () => {
+        const className = randClass()
+        const countMethod = randMethod().toLowerCase()
+        return `struct ${className} {
     name: String,
     data: Vec<i32>,
 }
-impl ${randClass()} {
+impl ${className} {
     fn new(name: &str) -> Self {
-        ${randClass()} {
+        ${className} {
             name: name.to_string(),
             data: Vec::new(),
         }
@@ -1643,20 +1779,25 @@ impl ${randClass()} {
     fn add(&mut self, item: i32) {
         self.data.push(item);
     }
-    fn ${randMethod().toLowerCase()}(&self) -> usize {
+    fn ${countMethod}(&self) -> usize {
         self.data.len()
     }
 }
 fn main() {
-    let mut ${randVar()} = ${randClass()}::new("test");
+    let mut ${randVar()} = ${className}::new("test");
     ${randVar()}.add(${randNum()});
     ${randVar()}.add(${randNum()});
-    println!("{}", ${randVar()}.${randMethod().toLowerCase()}());
+    println!("{}", ${randVar()}.${countMethod}());
 }`
+      }
     ],
     diamond: [
-      () => `use std::collections::HashMap;
-trait ${randClass()} {
+      () => {
+        const traitName = randClass()
+        const filterMethod = randMethod().toLowerCase()
+        const statsMethod = randMethod().toLowerCase()
+        return `use std::collections::HashMap;
+trait ${traitName} {
     type Item;
     fn validate(&self, item: &Self::Item) -> bool;
     fn add(&mut self, item: Self::Item) -> bool;
@@ -1671,7 +1812,7 @@ struct UserStore {
     users: Vec<User>,
     history: Vec<String>,
 }
-impl ${randClass()} for UserStore {
+impl ${traitName} for UserStore {
     type Item = User;
     fn validate(&self, item: &User) -> bool {
         item.id > 0 && !item.name.is_empty()
@@ -1698,13 +1839,13 @@ impl UserStore {
     fn find_by_min_age(&self, min_age: i32) -> Vec<&User> {
         self.users.iter().filter(|u| u.age >= min_age).collect()
     }
-    fn ${randMethod().toLowerCase()}<F>(&self, pred: F) -> Vec<&User>
+    fn ${filterMethod}<F>(&self, pred: F) -> Vec<&User>
     where
         F: Fn(&User) -> bool,
     {
         self.users.iter().filter(|u| pred(u)).collect()
     }
-    fn ${randMethod().toLowerCase()}(&self) -> HashMap<String, usize> {
+    fn ${statsMethod}(&self) -> HashMap<String, usize> {
         let mut stats = HashMap::new();
         stats.insert("users".to_string(), self.users.len());
         stats.insert("history".to_string(), self.history.len());
@@ -1717,23 +1858,26 @@ fn main() {
     ${randVar()}.add(User { id: 2, name: "Bob".to_string(), age: ${randNum()} });
     let ${randVar()} = ${randVar()}.find_by_min_age(${randNum()});
     println!("Found: {}", ${randVar()}.len());
-    println!("Stats: {:?}", ${randVar()}.${randMethod().toLowerCase()}());
+    println!("Stats: {:?}", ${randVar()}.${statsMethod}());
 }`
+      }
     ],
     african: [
-      () => `use std::collections::HashMap;
+      () => {
+        const structName = randClass()
+        return `use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 type Middleware<T> = Box<dyn Fn(&str, T, Option<&T>) -> T + Send + Sync>;
 type Subscriber<T> = Box<dyn Fn(&str, T, Option<&T>) + Send + Sync>;
-struct ${randClass()}<T: Clone + Send + Sync + 'static> {
+struct ${structName}<T: Clone + Send + Sync + 'static> {
     state: Arc<RwLock<HashMap<String, T>>>,
     middleware: Arc<RwLock<Vec<Middleware<T>>>>,
     subscribers: Arc<RwLock<Vec<Subscriber<T>>>>,
     history: Arc<RwLock<Vec<String>>>,
 }
-impl<T: Clone + Send + Sync + 'static> ${randClass()}<T> {
+impl<T: Clone + Send + Sync + 'static> ${structName}<T> {
     fn new() -> Self {
-        ${randClass()} {
+        ${structName} {
             state: Arc::new(RwLock::new(HashMap::new())),
             middleware: Arc::new(RwLock::new(Vec::new())),
             subscribers: Arc::new(RwLock::new(Vec::new())),
@@ -1815,7 +1959,7 @@ impl<T: Clone + Send + Sync + 'static> ${randClass()}<T> {
     }
 }
 fn main() {
-    let ${randVar()} = ${randClass()}::<i32>::new();
+    let ${randVar()} = ${structName}::<i32>::new();
     ${randVar()}.use_middleware(|_key, val, _old| val * 2);
     let unsub = ${randVar()}.subscribe(|key, val, _old| {
         println!("Changed {} to {}", key, val);
@@ -1828,6 +1972,7 @@ fn main() {
     println!("Filtered: {:?}", ${randVar()});
     println!("Stats: {:?}", ${randVar()}.stats());
 }`
+      }
     ]
   }
   return rand(templates[difficulty])()

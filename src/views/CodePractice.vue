@@ -77,6 +77,8 @@ const bestRecords = ref<Record<string, BestRecord>>({})
 
 // 计时器
 let timerInterval: ReturnType<typeof setInterval> | null = null
+// 编辑器刷新定时器（用于跟踪和清理）
+let refreshTimeout: ReturnType<typeof setTimeout> | null = null
 
 // CodeMirror 实例
 let codeMirrorInstance: CodeMirror.Editor | null = null
@@ -166,10 +168,14 @@ const initCodeMirror = () => {
   })
 
   // 刷新编辑器，确保正确渲染
-  setTimeout(() => {
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout)
+  }
+  refreshTimeout = setTimeout(() => {
     if (codeMirrorInstance) {
       codeMirrorInstance.refresh()
     }
+    refreshTimeout = null
   }, 100)
 }
 
@@ -550,6 +556,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopTimer()
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout)
+    refreshTimeout = null
+  }
   if (codeMirrorInstance) {
     codeMirrorInstance.toTextArea()
     codeMirrorInstance = null

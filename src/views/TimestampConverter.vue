@@ -74,7 +74,14 @@ watch([inputTimestamp, timestampUnit, dateFormat, customFormat], () => {
     } else {
       outputResult.value = '无效时间戳'
       relativeTimeResult.value = ''
+      timezoneResults.value = []
     }
+  } else if (conversionMode.value === 'timestamp-to-date') {
+    // 输入为空时清空结果
+    outputResult.value = ''
+    relativeTimeResult.value = ''
+    timestampType.value = ''
+    timezoneResults.value = []
   }
 })
 
@@ -90,7 +97,13 @@ watch([inputDate, timestampUnit], () => {
     } else {
       outputResult.value = '无效日期'
       relativeTimeResult.value = ''
+      timezoneResults.value = []
     }
+  } else if (conversionMode.value === 'date-to-timestamp') {
+    // 输入为空时清空结果
+    outputResult.value = ''
+    relativeTimeResult.value = ''
+    timezoneResults.value = []
   }
 })
 

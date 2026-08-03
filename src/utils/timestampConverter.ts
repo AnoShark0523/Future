@@ -1,7 +1,7 @@
 /**
  * 时间戳转换工具函数
  */
-import { format, formatDistanceToNow, differenceInMilliseconds, addDays, addHours, addMinutes, addSeconds } from 'date-fns'
+import { format, formatDistanceToNow, addDays, addHours, addMinutes, addSeconds } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 
 // 时区配置
@@ -43,6 +43,10 @@ export function timestampToDate(timestamp: number, formatStr = 'yyyy-MM-dd HH:mm
 
   try {
     const date = new Date(ms)
+    // 检查无效日期
+    if (isNaN(date.getTime())) {
+      return '无效时间戳'
+    }
     return format(date, formatStr, { locale: zhCN })
   } catch (e) {
     return '无效时间戳'
@@ -56,6 +60,10 @@ export function dateToTimestamp(dateStr: string, unit: 's' | 'ms' = 's'): number
   try {
     const date = new Date(dateStr)
     const ms = date.getTime()
+    // 检查无效日期(如 new Date('invalid') 会返回 NaN)
+    if (isNaN(ms)) {
+      return 0
+    }
     return unit === 's' ? Math.floor(ms / 1000) : ms
   } catch (e) {
     return 0
@@ -220,7 +228,11 @@ export function addTime(
   const ms = timestamp > 1e12 ? timestamp : timestamp * 1000
   const date = new Date(ms)
 
-  let newDate: Date
+  if (isNaN(date.getTime())) {
+    return 0
+  }
+
+  let newDate: Date = date
   switch (unit) {
     case 'days':
       newDate = addDays(date, amount)
@@ -259,6 +271,13 @@ export function batchConvertTimestamps(
  */
 export function getDetailedRelativeTime(timestamp: number): string {
   const ms = timestamp > 1e12 ? timestamp : timestamp * 1000
+  const date = new Date(ms)
+
+  // 检查无效日期
+  if (isNaN(date.getTime())) {
+    return '无效时间戳'
+  }
+
   const now = Date.now()
   const diff = now - ms
 

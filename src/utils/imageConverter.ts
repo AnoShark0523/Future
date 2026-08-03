@@ -52,100 +52,114 @@ export function getFileExtension(format: string): string {
 }
 
 /**
+ * 读取文件为 DataURL
+ */
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => resolve(e.target?.result as string)
+    reader.onerror = () => reject(new Error('文件读取失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * 加载图片
+ */
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('图片加载失败'))
+    img.src = src
+  })
+}
+
+/**
  * 将图片转换为PDF（支持多张图片合并到一个PDF）
+ * 顺序处理以保证页面顺序，并对透明图片填充白色背景
  */
 export async function convertImagesToPDF(
   files: File[],
   onProgress?: (progress: number) => void
 ): Promise<ConvertedFile> {
-  return new Promise((resolve, reject) => {
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'px',
-      format: 'a4'
-    })
+  if (files.length === 0) {
+    throw new Error('没有需要转换的图片文件')
+  }
 
-    let processedCount = 0
-    const totalPages = files.length
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'px',
+    format: 'a4'
+  })
 
-    const processImage = (file: File, index: number) => {
-      const reader = new FileReader()
+  const totalPages = files.length
 
-      reader.onload = (e) => {
-        const img = new Image()
+  for (let index = 0; index < totalPages; index++) {
+    const file = files[index]
+    const imgData = await readFileAsDataURL(file)
+    const img = await loadImage(imgData)
 
-        img.onload = () => {
-          // 如果不是第一页，添加新页
-          if (index > 0) {
-            pdf.addPage()
-          }
-
-          // 计算图片在PDF中的尺寸（保持比例）
-          const pageWidth = pdf.internal.pageSize.getWidth()
-          const pageHeight = pdf.internal.pageSize.getHeight()
-          const imgRatio = img.width / img.height
-          const pageRatio = pageWidth / pageHeight
-
-          let finalWidth, finalHeight
-          if (imgRatio > pageRatio) {
-            // 图片更宽，以宽度为准
-            finalWidth = pageWidth
-            finalHeight = pageWidth / imgRatio
-          } else {
-            // 图片更高，以高度为准
-            finalHeight = pageHeight
-            finalWidth = pageHeight * imgRatio
-          }
-
-          // 居中放置
-          const x = (pageWidth - finalWidth) / 2
-          const y = (pageHeight - finalHeight) / 2
-
-          // 添加图片到PDF
-          const imgData = e.target?.result as string
-          pdf.addImage(imgData, 'JPEG', x, y, finalWidth, finalHeight)
-
-          processedCount++
-
-          // 更新进度
-          if (onProgress) {
-            onProgress((processedCount / totalPages) * 100)
-          }
-
-          // 如果所有图片都处理完了，生成PDF
-          if (processedCount === totalPages) {
-            const pdfBlob = pdf.output('blob')
-            const url = URL.createObjectURL(pdfBlob)
-
-            resolve({
-              name: 'converted-images.pdf',
-              originalFormat: 'multiple',
-              newFormat: 'pdf',
-              originalSize: files.reduce((sum, f) => sum + f.size, 0),
-              newSize: pdfBlob.size,
-              url,
-              blob: pdfBlob
-            })
-          }
-        }
-
-        img.onerror = () => {
-          reject(new Error(`图片 ${file.name} 加载失败`))
-        }
-
-        img.src = e.target?.result as string
-      }
-
-      reader.onerror = () => {
-        reject(new Error('文件读取失败'))
-      }
-
-      reader.readAsDataURL(file)
+    // 如果不是第一页，添加新页
+    if (index > 0) {
+      pdf.addPage()
     }
 
-    // 处理所有图片
-    files.forEach((file, index) => processImage(file, index))
-  })
+    // 计算图片在PDF中的尺寸（保持比例）
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const imgRatio = img.width / img.height
+    const pageRatio = pageWidth / pageHeight
+
+    let finalWidth: number, finalHeight: number
+    if (imgRatio > pageRatio) {
+      // 图片更宽，以宽度为准
+      finalWidth = pageWidth
+      finalHeight = pageWidth / imgRatio
+    } else {
+      // 图片更高，以高度为准
+      finalHeight = pageHeight
+      finalWidth = pageHeight * imgRatio
+    }
+
+    // 居中放置
+    const x = (pageWidth - finalWidth) / 2
+    const y = (pageHeight - finalHeight) / 2
+
+    // 将图片绘制到Canvas并填充白色背景（处理PNG透明通道，避免黑底）
+    const canvas = document.createElement('canvas')
+    canvas.width = img.width
+    canvas.height = img.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      throw new Error('无法创建Canvas上下文')
+    }
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, 0, 0)
+
+    // 转为JPEG格式（透明通道已通过白底处理）
+    const flattenedData = canvas.toDataURL('image/jpeg', 0.92)
+    pdf.addImage(flattenedData, 'JPEG', x, y, finalWidth, finalHeight)
+
+    // 更新进度
+    if (onProgress) {
+      onProgress(((index + 1) / totalPages) * 100)
+    }
+  }
+
+  const pdfBlob = pdf.output('blob')
+  const url = URL.createObjectURL(pdfBlob)
+
+  return {
+    name: 'converted-images.pdf',
+    originalFormat: 'multiple',
+    newFormat: 'pdf',
+    originalSize: files.reduce((sum, f) => sum + f.size, 0),
+    newSize: pdfBlob.size,
+    url,
+    blob: pdfBlob
+  }
 }
 
 /**

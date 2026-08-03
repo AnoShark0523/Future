@@ -10,11 +10,12 @@ import postcssPlugin from 'prettier/plugins/postcss'
 import markdownPlugin from 'prettier/plugins/markdown'
 import yamlPlugin from 'prettier/plugins/yaml'
 import graphqlPlugin from 'prettier/plugins/graphql'
-import sqlPlugin from 'prettier-plugin-sql'
-import javaPlugin from 'prettier-plugin-java'
 
 // Prettier 插件集合（standalone 模式必须显式注册）
 // 注：prettier-plugin-sh 在浏览器环境下不兼容（sh-syntax 缺少 processor 导出）
+// 注：prettier-plugin-java 依赖 web-tree-sitter.wasm，Vite 开发模式下 wasm MIME 类型不正确，
+//     改为动态导入，失败时回退到简单格式化
+// 注：prettier-plugin-sql 同样改为动态导入
 const prettierPlugins = [
   babelPlugin,
   estreePlugin,
@@ -23,10 +24,46 @@ const prettierPlugins = [
   postcssPlugin,
   markdownPlugin,
   yamlPlugin,
-  graphqlPlugin,
-  sqlPlugin,
-  javaPlugin
+  graphqlPlugin
 ]
+
+// 动态加载的插件缓存
+let sqlPluginLoaded: any = null
+let javaPluginLoaded: any = null
+let sqlPluginFailed = false
+let javaPluginFailed = false
+
+/**
+ * 动态加载 SQL 插件（可能因 wasm 问题失败）
+ */
+async function loadSqlPlugin(): Promise<any> {
+  if (sqlPluginLoaded) return sqlPluginLoaded
+  if (sqlPluginFailed) return null
+  try {
+    const mod = await import('prettier-plugin-sql')
+    sqlPluginLoaded = mod.default || mod
+    return sqlPluginLoaded
+  } catch {
+    sqlPluginFailed = true
+    return null
+  }
+}
+
+/**
+ * 动态加载 Java 插件（依赖 wasm，浏览器环境可能失败）
+ */
+async function loadJavaPlugin(): Promise<any> {
+  if (javaPluginLoaded) return javaPluginLoaded
+  if (javaPluginFailed) return null
+  try {
+    const mod = await import('prettier-plugin-java')
+    javaPluginLoaded = mod.default || mod
+    return javaPluginLoaded
+  } catch {
+    javaPluginFailed = true
+    return null
+  }
+}
 
 interface FormatterOptions {
   parser: string
@@ -373,6 +410,26 @@ export async function formatCode(
       return simpleFormat(code, options)
     }
 
+    // SQL 和 Java 需要动态加载插件（依赖 wasm，可能失败）
+    let plugins = prettierPlugins
+    if (options.parser === 'sql') {
+      const sqlPlugin = await loadSqlPlugin()
+      if (sqlPlugin) {
+        plugins = [...prettierPlugins, sqlPlugin]
+      } else {
+        // SQL 插件加载失败，回退到简单格式化
+        return simpleFormat(code, options)
+      }
+    } else if (options.parser === 'java') {
+      const javaPlugin = await loadJavaPlugin()
+      if (javaPlugin) {
+        plugins = [...prettierPlugins, javaPlugin]
+      } else {
+        // Java 插件加载失败，回退到简单格式化
+        return simpleFormat(code, options)
+      }
+    }
+
     // Markdown 和 YAML 的特殊预处理
     let processedCode = code
     if (options.parser === 'markdown') {
@@ -393,7 +450,7 @@ export async function formatCode(
 
     const formatted = await prettier.format(processedCode, {
       parser: options.parser,
-      plugins: prettierPlugins,
+      plugins: plugins,
       tabWidth: options.tabWidth ?? 2,
       useTabs: options.useTabs ?? false,
       semi: options.semi ?? true,

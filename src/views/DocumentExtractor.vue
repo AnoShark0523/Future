@@ -2,12 +2,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { useNotification } from '@/composables/useNotification'
-import { 
-  extractWithKeywords, 
-  extractAutomatically, 
+import {
+  extractWithKeywords,
+  extractAutomatically,
   highlightText,
-  getStatistics 
+  getStatistics
 } from '@/utils/documentParser'
+import { extractTextFromPDF } from '@/utils/pdfImport'
 import { FileText, Copy, Download, Trash2, CheckCircle, Search, Sparkles } from 'lucide-vue-next'
 
 const inputText = ref('')
@@ -172,22 +173,33 @@ const handleFileUpload = async (event: Event) => {
   
   if (!file) return
   
-  // 检查文件类型（支持txt、md、docx）
+  // 检查文件类型（支持txt、md、pdf、docx）
   const fileExtension = file.name.split('.').pop()?.toLowerCase()
-  
-  if (!['txt', 'md', 'docx'].includes(fileExtension || '')) {
-    error('仅支持 .txt, .md, .docx 格式的文件')
+
+  if (!['txt', 'md', 'pdf', 'docx'].includes(fileExtension || '')) {
+    error('仅支持 .txt, .md, .pdf, .docx 格式的文件')
     return
   }
 
   isProcessing.value = true
-  
+
   try {
     let text = ''
-    
+
     if (fileExtension === 'txt' || fileExtension === 'md') {
       // 读取文本文件
       text = await readFileAsText(file)
+    } else if (fileExtension === 'pdf') {
+      // 读取PDF文档
+      try {
+        text = await extractTextFromPDF(file)
+      } catch (err: any) {
+        console.error('PDF文档处理失败:', err)
+        error(err.message || 'PDF文档解析失败')
+        isProcessing.value = false
+        target.value = ''
+        return
+      }
     } else if (fileExtension === 'docx') {
       // 读取Word文档
       try {
@@ -257,6 +269,11 @@ const readWordFile = async (file: File): Promise<string> => {
 
 // 处理粘贴事件
 const handlePaste = async (e: ClipboardEvent) => {
+  // 如果粘贴目标是一个可编辑元素（输入框、文本域等），不拦截，让默认行为生效
+  const target = e.target as HTMLElement
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+    return
+  }
   const text = e.clipboardData?.getData('text')
   if (text) {
     inputText.value = text
@@ -342,7 +359,7 @@ onUnmounted(() => {
           </div>
         </label>
         <div class="text-xs text-text-tertiary">
-          支持 .txt, .md, .docx 格式
+          支持 .txt, .md, .pdf, .docx 格式
         </div>
       </div>
     </div>
@@ -474,7 +491,7 @@ onUnmounted(() => {
             <div class="text-xs text-text-tertiary">段落数</div>
           </div>
           <div class="bg-bg-secondary rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-warning mb-1">{{ Math.round((result.extractedSentences.length / result.statistics.totalSentences) * 100) }}%</div>
+            <div class="text-2xl font-bold text-warning mb-1">{{ result.statistics.totalSentences > 0 ? Math.round((result.extractedSentences.length / result.statistics.totalSentences) * 100) : 0 }}%</div>
             <div class="text-xs text-text-tertiary">提取比例</div>
           </div>
         </div>

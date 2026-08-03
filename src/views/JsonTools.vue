@@ -12,7 +12,6 @@ import {
   formatDiffHTML
 } from '@/utils/jsonTools'
 import {
-  Braces,
   Copy,
   CheckCircle,
   Minimize2,
@@ -22,7 +21,8 @@ import {
   Code,
   ShieldCheck,
   Search,
-  GitCompare
+  GitCompare,
+  Download
 } from 'lucide-vue-next'
 
 // 当前选中的功能标签

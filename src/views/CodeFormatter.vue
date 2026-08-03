@@ -442,7 +442,7 @@ const templateList = Object.entries(codeTemplates).map(([key, value]) => ({
 
         <textarea
           v-model="inputCode"
-          placeholder="粘贴{{ currentLanguageInfo?.name }}代码..."
+          :placeholder="`粘贴${currentLanguageInfo?.name}代码...`"
           class="w-full h-48 p-4 rounded-lg bg-bg-secondary text-white placeholder:text-text-tertiary resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 mb-4 font-mono"
         />
 

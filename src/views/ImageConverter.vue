@@ -90,6 +90,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('paste', handlePaste)
+  cleanupImageUrls(convertedFiles.value)
 })
 
 const removeFile = (index: number) => {
@@ -98,8 +99,8 @@ const removeFile = (index: number) => {
 
 const clearFiles = () => {
   files.value = []
-  convertedFiles.value = []
   cleanupImageUrls(convertedFiles.value)
+  convertedFiles.value = []
   showPreview.value = false
 }
 

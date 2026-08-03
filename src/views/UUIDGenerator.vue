@@ -26,31 +26,44 @@ const generateUUIDv4 = (): string => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID()
   }
-  
-  // 否则手动实现
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    const v = c === 'x' ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
+
+  // 否则使用 crypto.getRandomValues 手动实现
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  // 设置版本号 (v4) 和变体位
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+
+  const toHex = (n: number) => n.toString(16).padStart(2, '0')
+  return (
+    toHex(bytes[0]) + toHex(bytes[1]) + toHex(bytes[2]) + toHex(bytes[3]) + '-' +
+    toHex(bytes[4]) + toHex(bytes[5]) + '-' +
+    toHex(bytes[6]) + toHex(bytes[7]) + '-' +
+    toHex(bytes[8]) + toHex(bytes[9]) + '-' +
+    toHex(bytes[10]) + toHex(bytes[11]) + toHex(bytes[12]) + toHex(bytes[13]) + toHex(bytes[14]) + toHex(bytes[15])
+  )
 }
 
 // 生成 UUID v1（基于时间戳）
 const generateUUIDv1 = (): string => {
-  const now = Date.now()
-  const time = now * 10000 + 122192928000000000 // 转换为100纳秒间隔，从1582年10月15日开始
-  
-  const timeHigh = Math.floor(time / 0x1000000000000) & 0xFFFFFFF
-  const timeMid = Math.floor(time / 0x100000000) & 0xFFFF
-  const timeLow = Math.floor(time) & 0xFFFFFFFF
-  
-  // 使用随机值作为 clock_seq 和 node
-  const clockSeq = (Math.random() * 0x3FFF) | 0x8000
-  const node = Array.from({ length: 6 }, () => Math.floor(Math.random() * 256))
-  
+  // 使用 BigInt 避免超过 Number.MAX_SAFE_INTEGER 导致精度丢失
+  const now = BigInt(Date.now())
+  const time = now * 10000n + 122192928000000000n // 转换为100纳秒间隔，从1582年10月15日开始
+
+  const timeLow = Number(time & 0xFFFFFFFFn)
+  const timeMid = Number((time >> 32n) & 0xFFFFn)
+  const timeHi = Number((time >> 48n) & 0x0FFFn)
+
+  // 使用 crypto.getRandomValues 生成 clock_seq 和 node
+  const randomBytes = new Uint8Array(8)
+  crypto.getRandomValues(randomBytes)
+
+  const clockSeq = (((randomBytes[0] << 8) | randomBytes[1]) & 0x3FFF) | 0x8000
+  const node = Array.from(randomBytes.slice(2))
+
   const hex = (n: number, length: number) => n.toString(16).padStart(length, '0')
-  
-  return `${hex(timeLow, 8)}-${hex(timeMid, 4)}-${hex((timeHigh & 0x0FFF) | 0x1000, 4)}-${hex(clockSeq, 4)}-${node.map(n => hex(n, 2)).join('')}`
+
+  return `${hex(timeLow, 8)}-${hex(timeMid, 4)}-${hex(timeHi | 0x1000, 4)}-${hex(clockSeq, 4)}-${node.map(n => hex(n, 2)).join('')}`
 }
 
 // 格式化 UUID

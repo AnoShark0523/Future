@@ -28,8 +28,6 @@ export default defineConfig({
       'prettier/plugins/markdown',
       'prettier/plugins/yaml',
       'prettier/plugins/graphql',
-      'prettier-plugin-sql',
-      'prettier-plugin-java',
       'mammoth',
       'pdfjs-dist/build/pdf.mjs',
       'pdfjs-dist/build/pdf.worker.mjs'

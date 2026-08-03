@@ -316,6 +316,18 @@ export function diffJSON(oldJson: any, newJson: any, path: string = ''): JsonDif
 }
 
 /**
+ * HTML 转义函数（防止差异结果中的 HTML 字符破坏渲染）
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+/**
  * 格式化差异结果为HTML（带高亮）
  */
 export function formatDiffHTML(diffs: JsonDiffResult[]): string {
@@ -332,17 +344,17 @@ export function formatDiffHTML(diffs: JsonDiffResult[]): string {
       case 'added':
         className = 'diff-added'
         icon = '+'
-        content = `${diff.path}: ${JSON.stringify(diff.newValue)}`
+        content = `${escapeHtml(diff.path)}: ${escapeHtml(JSON.stringify(diff.newValue))}`
         break
       case 'removed':
         className = 'diff-removed'
         icon = '-'
-        content = `${diff.path}: ${JSON.stringify(diff.oldValue)}`
+        content = `${escapeHtml(diff.path)}: ${escapeHtml(JSON.stringify(diff.oldValue))}`
         break
       case 'modified':
         className = 'diff-modified'
         icon = '~'
-        content = `${diff.path}: ${JSON.stringify(diff.oldValue)} → ${JSON.stringify(diff.newValue)}`
+        content = `${escapeHtml(diff.path)}: ${escapeHtml(JSON.stringify(diff.oldValue))} → ${escapeHtml(JSON.stringify(diff.newValue))}`
         break
       default:
         return ''

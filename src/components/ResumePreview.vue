@@ -45,6 +45,15 @@ function formatDateRange(start: string, end: string): string {
   return `${st} - ${ed}`
 }
 
+/**
+ * 将 URL 在斜杠后拆分为多段，用 <wbr> 标签允许在此处换行
+ * 避免 URL 在单词中间被强制截断（如 helios-ui 被拆成 heli + os-ui）
+ */
+function formatUrl(url: string): string {
+  if (!url) return ''
+  return url.replace(/\//g, '/<wbr>')
+}
+
 const hasAnyContent = computed(() => {
   const r = d.value
   return !!(
@@ -347,7 +356,7 @@ const skillTags = computed(() => {
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
             <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></span>
+              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link" v-html="formatUrl(proj.link)"></a></span></span>
               <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
             </div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
@@ -397,7 +406,7 @@ const skillTags = computed(() => {
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
             <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></span>
+              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link" v-html="formatUrl(proj.link)"></a></span></span>
               <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
             </div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
@@ -572,7 +581,7 @@ const skillTags = computed(() => {
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
             <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></span>
+              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link" v-html="formatUrl(proj.link)"></a></span></span>
               <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
             </div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
@@ -699,7 +708,7 @@ const skillTags = computed(() => {
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
             <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></span>
+              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link" v-html="formatUrl(proj.link)"></a></span></span>
               <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
             </div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
@@ -924,7 +933,7 @@ const skillTags = computed(() => {
         <section v-if="d.projects.length" class="section">
           <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
           <div v-for="proj in d.projects" :key="proj.id" class="elegant-row">
-            <div class="elegant-row-title">{{ proj.name }}<span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link">{{ proj.link }}</a></span></div>
+            <div class="elegant-row-title">{{ proj.name }}<span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link" v-html="formatUrl(proj.link)"></a></span></div>
             <div class="elegant-row-sub">{{ proj.role }} · {{ formatDateRange(proj.startDate, proj.endDate) }}</div>
             <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
           </div>
@@ -1586,13 +1595,13 @@ const skillTags = computed(() => {
 }
 .sidebar-list {
   font-size: 11.5px;
-  line-height: 1.65;
+  line-height: 1.7;
 }
 .sidebar-row {
   display: flex;
   gap: 6px;
   align-items: flex-start;
-  margin-bottom: 3px;
+  margin-bottom: 5px;
 }
 .sidebar-label {
   opacity: 0.7;
@@ -1618,7 +1627,8 @@ const skillTags = computed(() => {
 }
 .sidebar-cert {
   font-size: 12px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  line-height: 1.5;
 }
 .sidebar-summary {
   font-size: 12px;
@@ -2368,11 +2378,11 @@ const skillTags = computed(() => {
 
 /* ==================== 通用内容样式 ==================== */
 .section {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .section-body {
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: #555;
 }
 .section-body.center { text-align: center; }
@@ -2393,34 +2403,50 @@ const skillTags = computed(() => {
 .edu-row,
 .proj-row,
 .exp-row {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.entry-row:last-child,
+.edu-row:last-child,
+.proj-row:last-child,
+.exp-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 .entry-meta {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 10px;
+  margin-bottom: 4px;
 }
 .entry-position {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--text);
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: break-word;
 }
 .entry-sub {
   font-size: 11.5px;
   color: #666;
-  margin-top: 2px;
+  margin-top: 3px;
+  font-weight: 500;
 }
 .entry-date {
   font-size: 10.5px;
   color: #999;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .entry-desc {
   font-size: 11.5px;
-  line-height: 1.55;
+  line-height: 1.7;
   color: #555;
-  margin-top: 3px;
+  margin-top: 4px;
   white-space: pre-line;
 }
 
@@ -2428,7 +2454,8 @@ const skillTags = computed(() => {
   color: var(--accent);
   text-decoration: none;
   font-size: 12px;
-  word-break: break-all;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
 .entry-link:hover {
@@ -2436,7 +2463,7 @@ const skillTags = computed(() => {
 }
 
 .skill-block {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   word-break: break-word;
   overflow-wrap: break-word;
 }
@@ -2444,11 +2471,11 @@ const skillTags = computed(() => {
   font-size: 12px;
   font-weight: 600;
   color: var(--primary);
-  margin-bottom: 1px;
+  margin-bottom: 2px;
 }
 .skill-tags {
   font-size: 11px;
-  line-height: 1.55;
+  line-height: 1.65;
   color: #555;
   word-break: break-word;
   overflow-wrap: break-word;

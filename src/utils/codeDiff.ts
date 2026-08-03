@@ -43,12 +43,9 @@ function normalizeLine(line: string): string {
 }
 
 /**
- * 行相似度比较（0-1）
- * 基于编辑距离计算，用于判断行是否"基本正确"
+ * Levenshtein 相似度（接受已标准化的字符串，避免重复标准化）
  */
-function lineSimilarity(a: string, b: string): number {
-  const na = normalizeLine(a)
-  const nb = normalizeLine(b)
+function levenshteinSimilarity(na: string, nb: string): number {
   if (na === nb) return 1
   if (!na && !nb) return 1
   if (!na || !nb) return 0
@@ -77,18 +74,21 @@ function lineSimilarity(a: string, b: string): number {
 const MATCH_THRESHOLD = 0.85
 
 /**
+ * 相似度判断函数类型（使用索引避免重复标准化）
+ */
+type SimilarityFn = (i: number, j: number) => boolean
+
+/**
  * 简单的行级 LCS 算法
  * 找出两段代码的最长公共子序列
  * 使用相似度阈值判断行是否匹配
  */
-function lcs(a: string[], b: string[]): number[][] {
-  const m = a.length
-  const n = b.length
+function lcs(m: number, n: number, similar: SimilarityFn): number[][] {
   const dp: number[][] = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0))
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (lineSimilarity(a[i - 1], b[j - 1]) >= MATCH_THRESHOLD) {
+      if (similar(i - 1, j - 1)) {
         dp[i][j] = dp[i - 1][j - 1] + 1
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
@@ -104,15 +104,16 @@ function lcs(a: string[], b: string[]): number[][] {
  */
 function backtrack(
   dp: number[][],
-  a: string[],
-  b: string[]
+  m: number,
+  n: number,
+  similar: SimilarityFn
 ): Array<{ type: 'same' | 'missing' | 'extra'; aIndex: number; bIndex: number }> {
   const result: Array<{ type: 'same' | 'missing' | 'extra'; aIndex: number; bIndex: number }> = []
-  let i = a.length
-  let j = b.length
+  let i = m
+  let j = n
 
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && lineSimilarity(a[i - 1], b[j - 1]) >= MATCH_THRESHOLD) {
+    if (i > 0 && j > 0 && similar(i - 1, j - 1)) {
       result.unshift({ type: 'same', aIndex: i - 1, bIndex: j - 1 })
       i--
       j--
@@ -137,9 +138,33 @@ export function diffCode(expected: string, actual: string): DiffResult {
   const expectedLines = expected.split('\n')
   const actualLines = actual.split('\n')
 
+  // 去除尾部空行（由末尾换行符产生，避免行数统计偏多）
+  if (expectedLines.length > 0 && expectedLines[expectedLines.length - 1] === '') {
+    expectedLines.pop()
+  }
+  if (actualLines.length > 0 && actualLines[actualLines.length - 1] === '') {
+    actualLines.pop()
+  }
+
+  // 预标准化所有行，避免在 LCS DP 中重复标准化
+  const normalizedExpected = expectedLines.map(normalizeLine)
+  const normalizedActual = actualLines.map(normalizeLine)
+
+  // 相似度缓存（避免同一行对在 LCS 和 backtrack 中重复计算 Levenshtein 距离）
+  const simCache = new Map<string, boolean>()
+  const similar: SimilarityFn = (i: number, j: number): boolean => {
+    const key = `${i},${j}`
+    let cached = simCache.get(key)
+    if (cached === undefined) {
+      cached = levenshteinSimilarity(normalizedExpected[i], normalizedActual[j]) >= MATCH_THRESHOLD
+      simCache.set(key, cached)
+    }
+    return cached
+  }
+
   // 计算LCS
-  const dp = lcs(expectedLines, actualLines)
-  const trace = backtrack(dp, expectedLines, actualLines)
+  const dp = lcs(expectedLines.length, actualLines.length, similar)
+  const trace = backtrack(dp, expectedLines.length, actualLines.length, similar)
 
   const lines: DiffLine[] = []
   const wrongLines: DiffLine[] = []

@@ -54,12 +54,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
 
   // ======== 第1组：通用前置规则模板（10套）========
 
-  // 模板1：深灰左侧侧边栏商务斜切标题款
-  { id: 't01', name: '深灰斜切商务侧栏', category: '商务侧栏', layout: 'sidebar-left',
-    theme: 'gray-slanted-business', description: '深炭灰侧栏+蓝黑斜切标题条+图标化信息',
-    primaryColor: '#323741', secondaryColor: '#237fc9', backgroundColor: '#ffffff', textColor: '#222222', lightText: '#ffffff', accentColor: '#237fc9',
-    features: ['slanted-header', 'watermark', 'sidebar-dark'] },
-
   // 模板2：旷野风景全屏背景简约通栏款
   { id: 't02', name: '旷野风景通栏文艺', category: '居中通栏', layout: 'banner-center',
     theme: 'desert-wilderness', description: '低透明度沙漠风景背景+白色圆角内容卡+圆形头像',

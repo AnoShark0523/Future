@@ -38,22 +38,47 @@ const availableChars = computed(() => {
 // 计算密码强度
 const passwordStrength = computed(() => {
   if (!generatedPassword.value) return { level: '', score: 0, color: '', width: '0%' }
-  
+
   let score = 0
   const pwd = generatedPassword.value
-  
+
   // 长度分数
   if (pwd.length >= 8) score += 1
   if (pwd.length >= 12) score += 1
   if (pwd.length >= 16) score += 1
   if (pwd.length >= 20) score += 1
-  
+
   // 字符类型分数
   if (/[A-Z]/.test(pwd)) score += 1
   if (/[a-z]/.test(pwd)) score += 1
   if (/[0-9]/.test(pwd)) score += 1
   if (/[^A-Za-z0-9]/.test(pwd)) score += 1
-  
+
+  // 重复字符扣分
+  const uniqueChars = new Set(pwd).size
+  const repeatRatio = uniqueChars / pwd.length
+  if (repeatRatio < 0.5) score -= 2
+  else if (repeatRatio < 0.7) score -= 1
+
+  // 连续字符模式扣分(如 1234, abcd, qwerty)
+  const sequentialPatterns = [
+    /(0123|1234|2345|3456|4567|5678|6789)/,
+    /(abcd|bcde|cdef|defg|efgh|fghi|ghij|hijk|ijkl|jklm|klmn|lmno|mnop|nopq|opqr|pqrs|qrst|rstu|stuv|tuvw|uvwx|vwxy|wxyz)/i,
+    /(qwerty|asdf|zxcv)/i
+  ]
+  for (const pattern of sequentialPatterns) {
+    if (pattern.test(pwd)) {
+      score -= 1
+      break
+    }
+  }
+
+  // 重复模式扣分(如 aaaa, 1111)
+  if (/(.)\1{3,}/.test(pwd)) score -= 1
+
+  // 确保 score 不低于 0
+  score = Math.max(0, score)
+
   // 计算强度等级
   if (score <= 3) {
     return { level: '弱', score, color: 'bg-error', width: '25%' }
@@ -66,24 +91,66 @@ const passwordStrength = computed(() => {
   }
 })
 
+// 生成单个密码的内部函数 - 确保包含所有选中的字符类型
+const generateSinglePassword = (length: number, chars: string): string => {
+  const passwordChars: string[] = []
+
+  // 收集所有选中的字符集
+  const selectedSets: string[] = []
+  if (includeUppercase.value) selectedSets.push(charSets.uppercase)
+  if (includeLowercase.value) selectedSets.push(charSets.lowercase)
+  if (includeNumbers.value) selectedSets.push(charSets.numbers)
+  if (includeSymbols.value) selectedSets.push(charSets.symbols)
+
+  // 如果长度足够,先从每种字符类型各取一个字符,确保覆盖
+  if (length >= selectedSets.length) {
+    const randomForSets = new Uint32Array(selectedSets.length)
+    crypto.getRandomValues(randomForSets)
+    selectedSets.forEach((set, i) => {
+      passwordChars.push(set[randomForSets[i] % set.length])
+    })
+  }
+
+  // 填充剩余长度
+  const remaining = length - passwordChars.length
+  if (remaining > 0) {
+    const randomForRest = new Uint32Array(remaining)
+    crypto.getRandomValues(randomForRest)
+    for (let i = 0; i < remaining; i++) {
+      passwordChars.push(chars[randomForRest[i] % chars.length])
+    }
+  }
+
+  // 使用 Fisher-Yates 洗牌算法打乱顺序,避免前几位总是固定类型
+  const shuffleRandom = new Uint32Array(passwordChars.length)
+  crypto.getRandomValues(shuffleRandom)
+  for (let i = passwordChars.length - 1; i > 0; i--) {
+    const j = shuffleRandom[i] % (i + 1)
+    ;[passwordChars[i], passwordChars[j]] = [passwordChars[j], passwordChars[i]]
+  }
+
+  return passwordChars.join('')
+}
+
 // 生成密码
 const generatePassword = () => {
   if (!availableChars.value) {
     error('请至少选择一种字符类型')
     return
   }
-  
-  let password = ''
-  const chars = availableChars.value
-  const array = new Uint32Array(passwordLength.value)
-  crypto.getRandomValues(array)
-  
-  for (let i = 0; i < passwordLength.value; i++) {
-    password += chars[array[i] % chars.length]
+
+  // 检查 crypto API 是否可用(非 HTTPS 环境下可能不可用)
+  if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
+    error('当前环境不支持安全随机数生成,请使用 HTTPS 环境')
+    return
   }
-  
-  generatedPassword.value = password
-  success('密码生成成功')
+
+  try {
+    generatedPassword.value = generateSinglePassword(passwordLength.value, availableChars.value)
+    success('密码生成成功')
+  } catch (e: any) {
+    error('密码生成失败: ' + (e.message || '未知错误'))
+  }
 }
 
 // 批量生成密码
@@ -92,23 +159,25 @@ const generateBatchPasswords = () => {
     error('请至少选择一种字符类型')
     return
   }
-  
-  const passwords: string[] = []
-  const chars = availableChars.value
-  
-  for (let j = 0; j < 10; j++) {
-    let password = ''
-    const array = new Uint32Array(passwordLength.value)
-    crypto.getRandomValues(array)
-    
-    for (let i = 0; i < passwordLength.value; i++) {
-      password += chars[array[i] % chars.length]
-    }
-    passwords.push(password)
+
+  if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
+    error('当前环境不支持安全随机数生成,请使用 HTTPS 环境')
+    return
   }
-  
-  batchPasswords.value = passwords
-  success('批量生成成功')
+
+  try {
+    const passwords: string[] = []
+    const chars = availableChars.value
+
+    for (let j = 0; j < 10; j++) {
+      passwords.push(generateSinglePassword(passwordLength.value, chars))
+    }
+
+    batchPasswords.value = passwords
+    success('批量生成成功')
+  } catch (e: any) {
+    error('批量生成失败: ' + (e.message || '未知错误'))
+  }
 }
 
 // 复制密码

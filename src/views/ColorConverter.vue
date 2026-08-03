@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { useNotification } from '@/composables/useNotification'
 import {
@@ -34,12 +34,16 @@ const rgbInput = ref({ r: 102, g: 126, b: 234 })
 const hslInput = ref({ h: 230, s: 77, l: 66 })
 const cmykInput = ref({ c: 56, m: 46, y: 0, k: 8 })
 
+// 同步保护标志：防止 HEX→输入→HEX 循环更新导致输入被覆盖
+let isSyncing = false
+
 // 监听 HEX 输入变化
 watch(hexColor, (newHex) => {
   if (!isValidHex(newHex)) return
 
   const rgb = hexToRgb(newHex)
   if (rgb) {
+    isSyncing = true
     rgbValue.value = { ...rgb }
     rgbInput.value = { ...rgb }
 
@@ -53,6 +57,7 @@ watch(hexColor, (newHex) => {
 
     // 更新颜色选择器
     colorPickerValue.value = newHex.startsWith('#') ? newHex : '#' + newHex
+    nextTick(() => { isSyncing = false })
   }
 })
 
@@ -63,6 +68,7 @@ watch(colorPickerValue, (newColor) => {
 
 // 监听 RGB 输入变化
 watch(rgbInput, (newRgb) => {
+  if (isSyncing) return
   const r = Math.max(0, Math.min(255, newRgb.r))
   const g = Math.max(0, Math.min(255, newRgb.g))
   const b = Math.max(0, Math.min(255, newRgb.b))
@@ -72,6 +78,7 @@ watch(rgbInput, (newRgb) => {
 
 // 监听 HSL 输入变化
 watch(hslInput, (newHsl) => {
+  if (isSyncing) return
   const h = Math.max(0, Math.min(360, newHsl.h))
   const s = Math.max(0, Math.min(100, newHsl.s))
   const l = Math.max(0, Math.min(100, newHsl.l))
@@ -82,6 +89,7 @@ watch(hslInput, (newHsl) => {
 
 // 监听 CMYK 输入变化
 watch(cmykInput, (newCmyk) => {
+  if (isSyncing) return
   const c = Math.max(0, Math.min(100, newCmyk.c))
   const m = Math.max(0, Math.min(100, newCmyk.m))
   const y = Math.max(0, Math.min(100, newCmyk.y))

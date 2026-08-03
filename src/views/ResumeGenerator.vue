@@ -15,7 +15,8 @@ import {
   exportMarkdown,
   genId
 } from '@/utils/resumeTemplates'
-import { importResumeFromPDF } from '@/utils/pdfImport'
+import { importResumeFromPDF, ocrFromPDF, parseResumeFromText } from '@/utils/pdfImport'
+import { exportResumeToPDF } from '@/utils/pdfExport'
 import {
   resumeTemplateStyles,
   resumeTemplateCategories,
@@ -47,7 +48,8 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  Palette
+  Palette,
+  ScanLine
 } from 'lucide-vue-next'
 
 const { notification, success, error } = useNotification()
@@ -86,6 +88,14 @@ const markdownContent = ref('')
 // PDF 导入状态
 const importingPDF = ref(false)
 const importProgress = ref('')
+const showOCRButton = ref(false)
+const lastPDFFile = ref<File | null>(null)
+const ocrInProgress = ref(false)
+
+// PDF 导出状态
+const exportingPDF = ref(false)
+const exportProgress = ref('')
+const lastExportedBlob = ref<Blob | null>(null)
 
 // ==================== 计算属性 ====================
 
@@ -331,7 +341,7 @@ const importJSON = (event: Event) => {
   input.value = ''
 }
 
-// PDF 导入
+// PDF 导入（自动识别：元数据→文本提取→OCR，无需手动选择）
 const importPDFFile = async (event: Event) => {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -344,13 +354,21 @@ const importPDFFile = async (event: Event) => {
   }
 
   importingPDF.value = true
-  importProgress.value = '正在读取 PDF 文件...'
+  showOCRButton.value = false
+  lastPDFFile.value = file
+  importProgress.value = '正在解析 PDF 内容...'
 
   try {
-    importProgress.value = '正在解析 PDF 内容...'
-    const data = await importResumeFromPDF(file)
+    const { data, rawText, method, templateId } = await importResumeFromPDF(file, (msg) => {
+      importProgress.value = msg
+    })
 
     importProgress.value = '正在提取简历信息...'
+
+    // 如果元数据中包含模板ID，恢复模板选择
+    if (templateId && resumeTemplateStyles.some(t => t.id === templateId)) {
+      selectedTemplate.value = templateId
+    }
 
     // 检查有效字段数量
     let filledCount = 0
@@ -368,28 +386,30 @@ const importPDFFile = async (event: Event) => {
     if (data.skills.length) filledCount++
     if (data.projects.length) filledCount++
 
+    // 根据导入方式生成提示信息
+    const methodLabel = method === 'embeddedfile-v4' ? '（PDF附件无损恢复v4 · 100%精确）' :
+                        method === 'metadata' ? '（元数据精确恢复，含模板）' :
+                        method === 'ocr' ? '（OCR 自动识别）' :
+                        method === 'text' ? '（文本提取）' : ''
+
     if (filledCount >= 3) {
       resumeData.value = data
-      success(`PDF 导入成功，已提取 ${filledCount} 项信息`)
+      success(`PDF 导入成功${methodLabel}，已提取 ${filledCount} 项信息`)
     } else if (filledCount > 0) {
       // 提取到部分信息，同时把原始文本放到自我评价
-      const { extractTextFromPDF } = await import('@/utils/pdfImport')
-      const rawText = await extractTextFromPDF(file)
       if (rawText && !data.selfEvaluation) {
         data.selfEvaluation = rawText.slice(0, 2000)
       }
       resumeData.value = data
-      success(`PDF 导入部分成功，已提取 ${filledCount} 项信息，原始文本已放入自我评价`)
+      success(`PDF 导入部分成功${methodLabel}，已提取 ${filledCount} 项信息，原始文本已放入自我评价`)
     } else {
       // 完全没提取到结构化数据，把原始文本放到自我评价
-      const { extractTextFromPDF } = await import('@/utils/pdfImport')
-      const rawText = await extractTextFromPDF(file)
       if (rawText && rawText.trim().length > 10) {
         resumeData.value = createEmptyResume()
-        resumeData.value.selfEvaluation = rawText.slice(0, 2000)
-        success('PDF 文本已导入到自我评价，请手动编辑各字段')
+        resumeData.value.selfEvaluation = rawText.slice(0, 3000)
+        success(`PDF 文本已导入到自我评价${methodLabel}，请手动编辑各字段`)
       } else {
-        error('未能从 PDF 提取文本，可能是扫描件或图片格式')
+        error('未能从 PDF 提取任何内容，请确认 PDF 文件有效')
       }
     }
   } catch (err) {
@@ -400,6 +420,114 @@ const importPDFFile = async (event: Event) => {
     importingPDF.value = false
     importProgress.value = ''
     input.value = ''
+  }
+}
+
+// 手动触发 OCR 识别（用于扫描件）
+const handleOCRImport = async () => {
+  if (!lastPDFFile.value) return
+
+  ocrInProgress.value = true
+  importingPDF.value = true
+  importProgress.value = '正在加载 OCR 引擎...'
+
+  try {
+    const arrayBuffer = await lastPDFFile.value.arrayBuffer()
+    const text = await ocrFromPDF(arrayBuffer, (msg) => {
+      importProgress.value = msg
+    })
+
+    if (!text || text.trim().length < 10) {
+      error('OCR 未能识别出文字，请确认 PDF 内容清晰、分辨率足够。建议使用清晰扫描件或拍照件')
+      return
+    }
+
+    importProgress.value = '正在智能提取简历信息...'
+    const data = parseResumeFromText(text)
+
+    // 检查有效字段数量
+    let filledCount = 0
+    if (data.personal.name) filledCount++
+    if (data.personal.phone) filledCount++
+    if (data.personal.email) filledCount++
+    if (data.personal.title) filledCount++
+    if (data.personal.gender) filledCount++
+    if (data.personal.birthDate) filledCount++
+    if (data.personal.location) filledCount++
+    if (data.education.length) filledCount++
+    if (data.experience.length) filledCount++
+    if (data.skills.length) filledCount++
+    if (data.projects.length) filledCount++
+
+    if (filledCount >= 2) {
+      // 成功提取到较多结构化信息
+      if (!data.selfEvaluation) {
+        // 将原始 OCR 文本存入个人简介，方便用户校对
+        data.personal.summary = `（以下为 OCR 原始识别文本，请校对修正）\n${text.slice(0, 500)}`
+      }
+      resumeData.value = data
+      success(`OCR 识别成功！已提取 ${filledCount} 项结构化信息，请检查并修正各字段`)
+    } else if (filledCount >= 1) {
+      // 提取到部分信息
+      if (!data.selfEvaluation) {
+        data.selfEvaluation = text.slice(0, 1500)
+      }
+      resumeData.value = data
+      success(`OCR 识别部分成功，已提取 ${filledCount} 项信息，原始文本已放入自我评价供参考`)
+    } else {
+      // 未能提取结构化信息，但有 OCR 文本
+      resumeData.value = createEmptyResume()
+      resumeData.value.selfEvaluation = text.slice(0, 3000)
+      success('OCR 已识别文本（放入自我评价），请手动编辑各字段。建议使用更清晰的扫描件重试')
+    }
+
+    showOCRButton.value = false
+  } catch (err) {
+    console.error('OCR 导入失败:', err)
+    const msg = err instanceof Error ? err.message : '未知错误'
+    error(`OCR 识别失败：${msg}`)
+  } finally {
+    ocrInProgress.value = false
+    importingPDF.value = false
+    importProgress.value = ''
+  }
+}
+
+// 导出 PDF（html2canvas + jsPDF，生成真实 PDF 文件，中文不乱码，嵌入数据可导入恢复）
+const handleExportPDF = async () => {
+  if (!hasContent.value) return
+
+  exportingPDF.value = true
+  exportProgress.value = '正在准备导出...'
+
+  try {
+    const blob = await exportResumeToPDF(
+      resumeData.value,
+      `${resumeData.value.personal.name || '简历'}.pdf`,
+      (msg: string) => {
+        exportProgress.value = msg
+      },
+      selectedTemplate.value
+    )
+
+    // 触发浏览器下载
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${resumeData.value.personal.name || '简历'}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    success('PDF 导出成功！文件已开始下载，且可被本项目导入恢复全部数据')
+  } catch (err) {
+    console.error('PDF 导出失败:', err)
+    const msg = err instanceof Error ? err.message : '未知错误'
+    error(`PDF 导出失败：${msg}`)
+  } finally {
+    exportingPDF.value = false
+    exportProgress.value = ''
   }
 }
 
@@ -671,14 +799,46 @@ onMounted(() => {
           <input type="file" accept=".pdf" @change="importPDFFile" class="hidden" :disabled="importingPDF" />
         </label>
 
-        <!-- 打印 / PDF -->
+        <!-- 扫描件 OCR（仅当普通导入失败时显示） -->
+        <button
+          v-if="showOCRButton && !ocrInProgress"
+          @click="handleOCRImport"
+          class="px-4 py-2 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-600/40 transition-colors flex items-center gap-2 text-sm animate-pulse"
+        >
+          <ScanLine class="w-4 h-4" />
+          扫描件 OCR
+        </button>
+
+        <!-- OCR 进行中提示 -->
+        <div
+          v-if="ocrInProgress"
+          class="px-4 py-2 rounded-lg bg-amber-600/20 text-amber-300 border border-amber-600/40 flex items-center gap-2 text-sm"
+        >
+          <ScanLine class="w-4 h-4 animate-pulse" />
+          <span>{{ importProgress || 'OCR 处理中...' }}</span>
+        </div>
+
+        <!-- 导出 PDF（html2canvas + jsPDF，生成真实 PDF 文件，中文不乱码，嵌入数据可导入恢复） -->
+        <button
+          @click="handleExportPDF"
+          :disabled="!hasContent || exportingPDF"
+          class="gradient-btn !py-2 !px-4 disabled:opacity-40 flex items-center gap-2 text-sm"
+          title="生成真实 PDF 文件并下载，排版与预览一致，且可被本项目导入恢复全部数据"
+        >
+          <Download v-if="!exportingPDF" class="w-4 h-4" />
+          <span v-else class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block"></span>
+          {{ exportingPDF ? (exportProgress || '导出中...') : '导出PDF' }}
+        </button>
+
+        <!-- 打印预览（浏览器打印，视觉保真） -->
         <button
           @click="handlePrint"
           :disabled="!hasContent"
-          class="gradient-btn !py-2 !px-4 disabled:opacity-40 flex items-center gap-2 text-sm"
+          class="px-4 py-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border-color transition-colors flex items-center gap-2 text-sm"
+          title="使用浏览器打印功能，视觉效果更好但导出的PDF可能无法导入"
         >
           <Printer class="w-4 h-4" />
-          导出PDF
+          打印预览
         </button>
       </div>
     </div>
@@ -858,7 +1018,7 @@ onMounted(() => {
                 <input v-model="exp.startDate" placeholder="2021-07" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
                 <input v-model="exp.endDate" placeholder="至今" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
               </div>
-              <textarea v-model="exp.description" rows="3" placeholder="工作描述（每行一条要点）..." class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"></textarea>
+              <textarea v-model="exp.description" rows="5" placeholder="工作描述（每行一条要点）..." class="w-full px-3 py-2 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y min-h-[100px]"></textarea>
             </div>
             <div v-if="!resumeData.experience.length" class="text-center py-4 text-text-tertiary text-sm">
               暂无工作经历，点击上方"添加"
@@ -927,7 +1087,7 @@ onMounted(() => {
                 </div>
                 <div>
                   <label class="text-xs text-text-tertiary mb-0.5 block">在校经历（选填）</label>
-                  <textarea v-model="edu.description" rows="2" placeholder="主修课程、获奖情况、社团活动等..." class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"></textarea>
+                  <textarea v-model="edu.description" rows="3" placeholder="主修课程、获奖情况、社团活动等..." class="w-full px-3 py-2 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y min-h-[60px]"></textarea>
                 </div>
               </div>
             </div>
@@ -972,7 +1132,7 @@ onMounted(() => {
                   <input v-model="proj.endDate" placeholder="2022-12" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
                 </div>
               </div>
-              <textarea v-model="proj.description" rows="2" placeholder="项目描述..." class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"></textarea>
+              <textarea v-model="proj.description" rows="5" placeholder="项目描述..." class="w-full px-3 py-2 rounded bg-bg-tertiary text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y min-h-[100px]"></textarea>
             </div>
             <div v-if="!resumeData.projects.length" class="text-center py-4 text-text-tertiary text-sm">
               暂无项目经验，点击上方"添加"
@@ -1034,12 +1194,12 @@ onMounted(() => {
             <div v-show="expandedSections.certifications" class="px-5 pb-4 space-y-2">
               <div v-for="cert in resumeData.certifications" :key="cert.id" class="p-2 rounded bg-bg-secondary space-y-1.5">
                 <div class="flex items-center gap-2">
-                  <input v-model="cert.name" placeholder="证书名称" class="flex-1 px-2 py-1 rounded bg-bg-tertiary text-white text-xs focus:outline-none" />
+                  <input v-model="cert.name" placeholder="证书名称" class="flex-1 px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none" />
                   <button @click="removeItem(resumeData.certifications, cert.id)" class="p-1 text-red-400 hover:bg-red-600/20 rounded"><X class="w-3 h-3" /></button>
                 </div>
                 <div class="grid grid-cols-2 gap-1.5">
-                  <input v-model="cert.issuer" placeholder="颁发机构" class="px-2 py-1 rounded bg-bg-tertiary text-white text-xs focus:outline-none" />
-                  <input v-model="cert.date" placeholder="2022-08" class="px-2 py-1 rounded bg-bg-tertiary text-white text-xs focus:outline-none" />
+                  <input v-model="cert.issuer" placeholder="颁发机构" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none" />
+                  <input v-model="cert.date" placeholder="2022-08" class="px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none" />
                 </div>
               </div>
               <div v-if="!resumeData.certifications.length" class="text-center py-3 text-text-tertiary text-xs">暂无</div>
@@ -1061,10 +1221,12 @@ onMounted(() => {
               </div>
             </button>
             <div v-show="expandedSections.languages" class="px-5 pb-4 space-y-2">
-              <div v-for="lang in resumeData.languages" :key="lang.id" class="flex items-center gap-2">
-                <input v-model="lang.name" placeholder="语言" class="flex-1 px-2 py-1 rounded bg-bg-secondary text-white text-xs focus:outline-none" />
-                <input v-model="lang.proficiency" placeholder="熟练度" class="flex-1 px-2 py-1 rounded bg-bg-secondary text-white text-xs focus:outline-none" />
-                <button @click="removeItem(resumeData.languages, lang.id)" class="p-1 text-red-400 hover:bg-red-600/20 rounded"><X class="w-3 h-3" /></button>
+              <div v-for="lang in resumeData.languages" :key="lang.id" class="p-2 rounded bg-bg-secondary space-y-1.5">
+                <div class="flex items-center gap-2">
+                  <input v-model="lang.name" placeholder="语言" class="flex-1 px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none" />
+                  <button @click="removeItem(resumeData.languages, lang.id)" class="p-1 text-red-400 hover:bg-red-600/20 rounded"><X class="w-3 h-3" /></button>
+                </div>
+                <input v-model="lang.proficiency" placeholder="熟练度（如：CET-6 / 精通 / 熟练）" class="w-full px-3 py-1.5 rounded bg-bg-tertiary text-white text-sm focus:outline-none" />
               </div>
               <div v-if="!resumeData.languages.length" class="text-center py-3 text-text-tertiary text-xs">暂无</div>
             </div>

@@ -286,7 +286,7 @@ public class CronJob {
 
         CronTrigger trigger = TriggerBuilder.newTrigger()
             .withIdentity("trigger1", "group1")
-            .withSchedule(CronScheduleBuilder.cronSchedule("${cronFields.value.second} ${cronFields.value.minute} ${cronFields.value.hour} ${cronFields.value.day} ${cronFields.value.month} ? ${cronFields.value.weekday}"))
+            .withSchedule(CronScheduleBuilder.cronSchedule("${cronFields.value.second} ${cronFields.value.minute} ${cronFields.value.hour} ${cronFields.value.day} ${cronFields.value.month} ${cronFields.value.weekday}"))
             .build();
 
         scheduler.start();
@@ -625,17 +625,17 @@ watch(activeFieldType, () => {
           <!-- Language Tabs -->
           <div class="flex gap-2 mb-4">
             <button
-              @class="`px-4 py-2 rounded-lg bg-primary text-white`"
+              :class="`px-4 py-2 rounded-lg bg-primary text-white`"
             >
               JavaScript
             </button>
             <button
-              @class="`px-4 py-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary text-text-secondary`"
+              :class="`px-4 py-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary text-text-secondary`"
             >
               Python
             </button>
             <button
-              @class="`px-4 py-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary text-text-secondary`"
+              :class="`px-4 py-2 rounded-lg bg-bg-secondary hover:bg-bg-tertiary text-text-secondary`"
             >
               Java
             </button>

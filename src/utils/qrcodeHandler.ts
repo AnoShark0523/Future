@@ -158,6 +158,60 @@ async function applyQRStyle(dataURL: string, options: QRCodeOptions): Promise<st
   })
 }
 
+// 检测二维码模块大小(通过定位标记)
+function detectModuleSize(data: Uint8ClampedArray, width: number, height: number): number {
+  // 扫描前几行,找到定位标记的第一行(7个连续黑色模块)
+  for (let y = 0; y < height; y++) {
+    let blackCount = 0
+
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4
+      const isBlack = data[i] < 128
+
+      if (isBlack) {
+        blackCount++
+      } else {
+        if (blackCount >= 7) {
+          // 找到了定位标记,模块大小 = blackCount / 7
+          return Math.round(blackCount / 7)
+        }
+        blackCount = 0
+      }
+    }
+
+    if (blackCount >= 7) {
+      return Math.round(blackCount / 7)
+    }
+  }
+
+  return 8 // 默认值
+}
+
+// 圆角矩形 polyfill(旧浏览器兼容)
+function drawRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, width, height, radius)
+  } else {
+    // 手动绘制圆角矩形
+    ctx.moveTo(x + radius, y)
+    ctx.lineTo(x + width - radius, y)
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
+    ctx.lineTo(x + width, y + height - radius)
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
+    ctx.lineTo(x + radius, y + height)
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
+    ctx.lineTo(x, y + radius)
+    ctx.quadraticCurveTo(x, y, x + radius, y)
+  }
+}
+
 // 圆角样式绘制
 function drawRoundedQR(
   ctx: CanvasRenderingContext2D,
@@ -166,11 +220,11 @@ function drawRoundedQR(
   height: number,
   options: QRCodeOptions
 ) {
-  const moduleSize = 8 // 模块大小
+  const moduleSize = detectModuleSize(data, width, height)
   const radius = moduleSize / 2 * 0.8 // 圆角半径
-  
+
   ctx.fillStyle = options.color?.dark || '#667eea'
-  
+
   for (let y = 0; y < height; y += moduleSize) {
     for (let x = 0; x < width; x += moduleSize) {
       const i = (y * width + x) * 4
@@ -178,7 +232,7 @@ function drawRoundedQR(
       if (data[i] < 128) {
         // 绘制圆角矩形
         ctx.beginPath()
-        ctx.roundRect(x, y, moduleSize, moduleSize, radius)
+        drawRoundRect(ctx, x, y, moduleSize, moduleSize, radius)
         ctx.fill()
       }
     }
@@ -193,11 +247,11 @@ function drawDotsQR(
   height: number,
   options: QRCodeOptions
 ) {
-  const moduleSize = 8
+  const moduleSize = detectModuleSize(data, width, height)
   const radius = moduleSize / 2 * 0.7
-  
+
   ctx.fillStyle = options.color?.dark || '#667eea'
-  
+
   for (let y = 0; y < height; y += moduleSize) {
     for (let x = 0; x < width; x += moduleSize) {
       const i = (y * width + x) * 4
@@ -268,10 +322,16 @@ export async function parseQRCode(imageFile: File): Promise<string> {
  * 生成WiFi配置二维码
  */
 export function generateWiFiConfig(ssid: string, password: string, security: 'WEP' | 'WPA' | 'nopass' = 'WPA'): string {
-  const securityType = security === 'nopass' ? '' : security
+  const securityType = security === 'nopass' ? 'nopass' : security
   const hidden = false
+  const hiddenStr = `H:${hidden ? 'true' : 'false'}`
 
-  return `WIFI:T:${securityType};S:${ssid};P:${password};H:${hidden ? 'true' : 'false'};;`
+  // 无密码时不需要 P 字段
+  if (security === 'nopass') {
+    return `WIFI:T:${securityType};S:${ssid};${hiddenStr};;`
+  }
+
+  return `WIFI:T:${securityType};S:${ssid};P:${password};${hiddenStr};;`
 }
 
 /**
@@ -332,7 +392,8 @@ export async function embedLogoToQRCode(
       const padding = 4
       ctx.fillStyle = '#ffffff'
       ctx.beginPath()
-      ctx.roundRect(
+      drawRoundRect(
+        ctx,
         x - padding,
         y - padding,
         logoSize + padding * 2,
@@ -405,8 +466,8 @@ export async function generateBatchQRCodes(
   items: Array<{ content: string; filename: string }>,
   options: QRCodeOptions = {}
 ): Promise<Array<{ filename: string; dataURL: string }>> {
-  const results = []
-  
+  const results: Array<{ filename: string; dataURL: string }> = []
+
   for (const item of items) {
     try {
       const dataURL = await generateQRCode(item.content, options)
@@ -418,7 +479,7 @@ export async function generateBatchQRCodes(
       console.error(`生成 ${item.filename} 失败:`, error)
     }
   }
-  
+
   return results
 }
 

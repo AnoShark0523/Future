@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useNotification } from '@/composables/useNotification'
 import { useClipboard } from '@/composables/useClipboard'
 import { diffText, exportDiffReport } from '@/utils/textDiffer'
@@ -15,13 +15,17 @@ const ignoreCase = ref(false)
 const { notification, success, error } = useNotification()
 const { copied, copyToClipboard } = useClipboard()
 
-const handleCompare = () => {
+const handleCompare = async () => {
   if (!leftText.value.trim() || !rightText.value.trim()) {
     error('请输入要对比的两个文本')
     return
   }
 
   isComparing.value = true
+
+  // 等待UI更新渲染loading状态后再执行重计算，避免大文本时界面卡顿无响应
+  await nextTick()
+  await new Promise(resolve => setTimeout(resolve, 0))
 
   try {
     let processedLeft = leftText.value
