@@ -553,7 +553,7 @@ const handlePrint = () => {
     styleHTML += style.outerHTML
   })
 
-  // 创建打印HTML — 严格A4单页，scale-to-fit不切割
+  // 创建打印HTML — 严格A4单页，zoom缩放防止分页
   const printHTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -581,9 +581,12 @@ const handlePrint = () => {
     .resume-paper {
       width: 210mm !important;
       min-height: 0 !important;
-      height: auto !important;
+      height: 297mm !important;
+      max-height: 297mm !important;
+      overflow: hidden !important;
       margin: 0 !important;
       box-shadow: none !important;
+      transform: none !important;
       transform-origin: top left !important;
     }
   </style>
@@ -635,14 +638,11 @@ const handlePrint = () => {
       const a4HeightPx = 297 * 96 / 25.4 // ≈ 1122.52px
 
       if (actualHeightPx > a4HeightPx) {
-        // 等比缩放整个简历以适应A4高度（不切割、不变形）
+        // 使用 zoom 替代 transform: scale()
+        // 原因：transform 不改变布局尺寸，浏览器打印引擎仍按原始高度分页
+        //       zoom 会真正改变元素布局尺寸，打印时不会产生第二页
         const scale = a4HeightPx / actualHeightPx
-        resume.style.transform = `scale(${scale})`
-        // 缩放后宽度变小，水平居中
-        const scaledWidthPx = (210 * 96 / 25.4) * scale
-        const wrapperWidthPx = 210 * 96 / 25.4
-        const offset = (wrapperWidthPx - scaledWidthPx) / 2
-        resume.style.marginLeft = `${offset}px`
+        resume.style.zoom = String(scale)
       }
 
       // 等待缩放应用后打印
@@ -666,11 +666,7 @@ const handlePrint = () => {
           const a4HeightPx = 297 * 96 / 25.4
           if (actualHeightPx > a4HeightPx) {
             const scale = a4HeightPx / actualHeightPx
-            resume.style.transform = `scale(${scale})`
-            const scaledWidthPx = (210 * 96 / 25.4) * scale
-            const wrapperWidthPx = 210 * 96 / 25.4
-            const offset = (wrapperWidthPx - scaledWidthPx) / 2
-            resume.style.marginLeft = `${offset}px`
+            resume.style.zoom = String(scale)
           }
         }
         iWin.focus()
