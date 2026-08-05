@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from 'vue'
 import type { ResumeData } from '@/utils/resumeTemplates'
 import type { ResumeTemplateStyle } from '@/utils/resumeTemplateStyles'
@@ -311,12 +311,9 @@ const skillTags = computed(() => {
           </div>
         </div>
 
-        <div class="sidebar-section" v-if="d.skills.length">
-          <div class="section-title sidebar-section-title">专业技能</div>
-          <div v-for="cat in d.skills" :key="cat.id" class="skill-block">
-            <div class="skill-cat-name">{{ cat.name }}</div>
-            <div class="skill-tags">{{ cat.skills.filter(Boolean).join('、') }}</div>
-          </div>
+        <div class="sidebar-section" v-if="d.selfEvaluation">
+          <div class="section-title sidebar-section-title">自我评价</div>
+          <p class="sidebar-summary">{{ d.selfEvaluation }}</p>
         </div>
 
         <div class="sidebar-section" v-if="d.certifications.length">
@@ -364,9 +361,12 @@ const skillTags = computed(() => {
           </div>
         </section>
 
-        <section v-if="d.selfEvaluation" class="section">
-          <div class="section-title"><span class="section-icon">📝</span>自我评价</div>
-          <p class="section-body">{{ d.selfEvaluation }}</p>
+        <section v-if="d.skills.length" class="section">
+          <div class="section-title"><span class="section-icon">⚡</span>专业技能</div>
+          <div v-for="cat in d.skills" :key="cat.id" class="skill-block">
+            <div class="skill-cat-name">{{ cat.name }}</div>
+            <div class="skill-tags">{{ cat.skills.filter(Boolean).join('、') }}</div>
+          </div>
         </section>
       </main>
     </div>
@@ -1209,7 +1209,7 @@ const skillTags = computed(() => {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
   overflow: hidden;
   font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
-  font-size: 12.5px;
+  font-size: 10.5px;
   line-height: 1.55;
   position: relative;
   box-sizing: border-box;
@@ -1272,7 +1272,7 @@ const skillTags = computed(() => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) rotate(-30deg);
-  font-size: 72px;
+  font-size: 70px;
   font-weight: 900;
   color: var(--accent);
   opacity: 0.07;
@@ -1305,7 +1305,7 @@ const skillTags = computed(() => {
   justify-content: center;
   background: rgba(0, 0, 0, 0.08);
   color: rgba(0, 0, 0, 0.35);
-  font-size: 11px;
+  font-size: 9px;
 }
 
 .photo-square .photo-wrap { border-radius: 4px; }
@@ -1313,7 +1313,7 @@ const skillTags = computed(() => {
 
 /* ==================== 标题系统 ==================== */
 .section-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   margin-bottom: 8px;
   color: var(--primary);
@@ -1325,7 +1325,7 @@ const skillTags = computed(() => {
   padding-left: 10px;
 }
 .section-icon {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 /* 斜切标题 */
@@ -1400,12 +1400,12 @@ const skillTags = computed(() => {
 }
 .skill-ring-text {
   position: relative;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--c);
 }
 .skill-ring-name {
-  font-size: 10px;
+  font-size: 8px;
   margin-top: 4px;
   text-align: center;
   max-width: 64px;
@@ -1423,7 +1423,7 @@ const skillTags = computed(() => {
 .skill-bar-head {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 9px;
   margin-bottom: 3px;
 }
 .skill-bar-name {
@@ -1431,7 +1431,7 @@ const skillTags = computed(() => {
 }
 .skill-bar-cat {
   color: var(--accent);
-  font-size: 10px;
+  font-size: 8px;
 }
 .skill-bar-track {
   height: 6px;
@@ -1462,14 +1462,14 @@ const skillTags = computed(() => {
   overflow-wrap: break-word;
 }
 .sidebar-brand {
-  font-size: 11px;
+  font-size: 9px;
   letter-spacing: 3px;
   font-weight: 700;
   opacity: 0.7;
   margin-bottom: 6px;
 }
 .sidebar-job {
-  font-size: 12px;
+  font-size: 10px;
   margin-bottom: 12px;
   opacity: 0.9;
 }
@@ -1484,11 +1484,11 @@ const skillTags = computed(() => {
   margin-bottom: 14px;
 }
 .sidebar-name {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
 }
 .sidebar-subtitle {
-  font-size: 12px;
+  font-size: 10px;
   opacity: 0.85;
   margin-top: 3px;
 }
@@ -1496,7 +1496,7 @@ const skillTags = computed(() => {
   margin-bottom: 12px;
 }
 .sidebar-section-title {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   border-bottom: 1px solid rgba(255, 255, 255, 0.25);
   padding-bottom: 5px;
@@ -1526,7 +1526,7 @@ const skillTags = computed(() => {
   clip-path: none;
 }
 .sidebar-list {
-  font-size: 11.5px;
+  font-size: 9.5px;
   line-height: 1.7;
 }
 .sidebar-row {
@@ -1552,18 +1552,18 @@ const skillTags = computed(() => {
   gap: 6px;
 }
 .sidebar-tag {
-  font-size: 11px;
+  font-size: 9px;
   padding: 2px 8px;
   background: rgba(255, 255, 255, 0.15);
   border-radius: 10px;
 }
 .sidebar-cert {
-  font-size: 12px;
+  font-size: 10px;
   margin-bottom: 6px;
   line-height: 1.5;
 }
 .sidebar-summary {
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.7;
   opacity: 0.9;
 }
@@ -1598,12 +1598,12 @@ const skillTags = computed(() => {
   border-bottom: 2px solid var(--primary);
 }
 .main-name {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--primary);
 }
 .main-title-text {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--secondary);
   margin-top: 3px;
 }
@@ -1655,11 +1655,11 @@ const skillTags = computed(() => {
   flex: 1;
 }
 .banner-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
 }
 .banner-title-text {
-  font-size: 13px;
+  font-size: 11px;
   opacity: 0.9;
   margin-top: 3px;
 }
@@ -1678,7 +1678,7 @@ const skillTags = computed(() => {
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 20px;
-  font-size: 10px;
+  font-size: 8px;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
@@ -1710,12 +1710,12 @@ const skillTags = computed(() => {
   flex: 1;
 }
 .timeline-name {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--primary);
 }
 .timeline-title-text {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--secondary);
   margin-top: 2px;
 }
@@ -1769,16 +1769,16 @@ const skillTags = computed(() => {
   border-radius: 50%;
 }
 .clean-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
 }
 .clean-title-text {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--secondary);
   margin-top: 3px;
 }
 .clean-meta {
-  font-size: 10px;
+  font-size: 8px;
   color: #888;
   margin-top: 6px;
   display: flex;
@@ -1813,13 +1813,13 @@ const skillTags = computed(() => {
   position: relative;
 }
 .brand-name {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 900;
   color: var(--primary);
   line-height: 1;
 }
 .brand-sub {
-  font-size: 11px;
+  font-size: 9px;
   color: var(--secondary);
   margin-top: 4px;
 }
@@ -1870,12 +1870,12 @@ const skillTags = computed(() => {
   min-width: 0;
 }
 .card-name {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.2;
 }
 .card-title-text {
-  font-size: 11px;
+  font-size: 9px;
   opacity: 0.9;
   margin-top: 1px;
 }
@@ -1922,18 +1922,18 @@ const skillTags = computed(() => {
   border-radius: 50%;
 }
 .elegant-name {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 300;
   letter-spacing: 3px;
 }
 .elegant-title-text {
-  font-size: 11px;
+  font-size: 9px;
   color: var(--secondary);
   margin-top: 3px;
   letter-spacing: 1px;
 }
 .elegant-meta {
-  font-size: 10px;
+  font-size: 8px;
   color: #999;
   margin-top: 5px;
   line-height: 1.6;
@@ -1949,11 +1949,11 @@ const skillTags = computed(() => {
   margin-bottom: 8px;
 }
 .elegant-row-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 .elegant-row-sub {
-  font-size: 11px;
+  font-size: 9px;
   color: #999;
   margin-bottom: 4px;
   margin-top: 2px;
@@ -1983,11 +1983,11 @@ const skillTags = computed(() => {
   flex: 1;
 }
 .split-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
 }
 .split-title-text {
-  font-size: 13px;
+  font-size: 11px;
   opacity: 0.9;
   margin-top: 3px;
 }
@@ -2035,17 +2035,17 @@ const skillTags = computed(() => {
   flex: 1;
 }
 .dark-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--accent);
 }
 .dark-title-text {
-  font-size: 12px;
+  font-size: 10px;
   opacity: 0.85;
   margin-top: 3px;
 }
 .dark-meta {
-  font-size: 10.5px;
+  font-size: 8.5px;
   margin-top: 6px;
   display: flex;
   flex-wrap: wrap;
@@ -2105,17 +2105,17 @@ const skillTags = computed(() => {
   flex: 1;
 }
 .dashboard-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--primary);
 }
 .dashboard-title-text {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--secondary);
   margin-top: 3px;
 }
 .dashboard-meta {
-  font-size: 10.5px;
+  font-size: 8.5px;
   color: #666;
   margin-top: 6px;
   display: flex;
@@ -2170,12 +2170,12 @@ const skillTags = computed(() => {
   justify-content: center;
 }
 .pie-chart-total {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--primary);
 }
 .pie-chart-label {
-  font-size: 9px;
+  font-size: 7px;
   color: #888;
 }
 .pie-legend {
@@ -2188,7 +2188,7 @@ const skillTags = computed(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 9px;
 }
 .legend-color {
   width: 10px;
@@ -2235,7 +2235,7 @@ const skillTags = computed(() => {
   transition: height 0.3s;
 }
 .bar-label {
-  font-size: 9px;
+  font-size: 7px;
   color: #666;
   margin-top: 4px;
   text-align: center;
@@ -2256,7 +2256,7 @@ const skillTags = computed(() => {
 .line-chart-x {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: 7px;
   color: #666;
   margin-top: 4px;
 }
@@ -2266,7 +2266,7 @@ const skillTags = computed(() => {
   gap: 6px;
 }
 .dashboard-skill-tag {
-  font-size: 11px;
+  font-size: 9px;
   padding: 3px 10px;
   background: rgba(0, 0, 0, 0.04);
   border: 1px solid var(--primary);
@@ -2279,14 +2279,14 @@ const skillTags = computed(() => {
   margin-bottom: 14px;
 }
 .section-body {
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.7;
   color: #555;
 }
 .section-body.center { text-align: center; }
 .section-body.justify { text-align: justify; }
 .section-body.elegant {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 300;
   color: #666;
 }
@@ -2321,7 +2321,7 @@ const skillTags = computed(() => {
   margin-bottom: 4px;
 }
 .entry-position {
-  font-size: 13.5px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--text);
   min-width: 0;
@@ -2329,19 +2329,19 @@ const skillTags = computed(() => {
   overflow-wrap: break-word;
 }
 .entry-sub {
-  font-size: 11.5px;
+  font-size: 9.5px;
   color: #666;
   margin-top: 3px;
   font-weight: 500;
 }
 .entry-date {
-  font-size: 10.5px;
+  font-size: 8.5px;
   color: #999;
   white-space: nowrap;
   flex-shrink: 0;
 }
 .entry-desc {
-  font-size: 11.5px;
+  font-size: 9.5px;
   line-height: 1.7;
   color: #555;
   margin-top: 4px;
@@ -2351,7 +2351,7 @@ const skillTags = computed(() => {
 .entry-link {
   color: var(--accent);
   text-decoration: none;
-  font-size: 12px;
+  font-size: 10px;
   word-break: keep-all;
   overflow-wrap: normal;
 }
@@ -2366,13 +2366,13 @@ const skillTags = computed(() => {
   overflow-wrap: break-word;
 }
 .skill-cat-name {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--primary);
   margin-bottom: 2px;
 }
 .skill-tags {
-  font-size: 11px;
+  font-size: 9px;
   line-height: 1.65;
   color: #555;
   word-break: break-word;
@@ -2382,13 +2382,13 @@ const skillTags = computed(() => {
 
 .cert-row,
 .lang-row {
-  font-size: 12px;
+  font-size: 10px;
   margin-bottom: 4px;
   color: #555;
 }
 
 .info-list {
-  font-size: 12px;
+  font-size: 10px;
   line-height: 2;
   color: #555;
 }
@@ -2398,7 +2398,7 @@ const skillTags = computed(() => {
   flex-wrap: wrap;
   gap: 4px 12px;
   margin-top: 6px;
-  font-size: 10.5px;
+  font-size: 8.5px;
 }
 .contact-item {
   white-space: nowrap;
@@ -2408,7 +2408,7 @@ const skillTags = computed(() => {
   flex-wrap: wrap;
   gap: 2px 10px;
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 8px;
   color: rgba(255,255,255,0.9);
 }
 .info-strip-item {
@@ -2429,7 +2429,7 @@ const skillTags = computed(() => {
   flex-wrap: wrap;
   gap: 8px 14px;
   margin-top: 8px;
-  font-size: 11px;
+  font-size: 9px;
   opacity: 0.9;
 }
 .basic-item {
@@ -2461,7 +2461,7 @@ const skillTags = computed(() => {
   justify-content: center;
   min-height: 297mm;
   color: #999;
-  font-size: 14px;
+  font-size: 12px;
   position: absolute;
   inset: 0;
   z-index: 10;
@@ -2582,7 +2582,7 @@ const skillTags = computed(() => {
   display: flex;
   gap: 20px;
   justify-content: center;
-  font-size: 11px;
+  font-size: 9px;
   z-index: 2;
 }
 
@@ -2624,7 +2624,7 @@ const skillTags = computed(() => {
 .has-en-cn-title .main-name::after {
   content: 'RESUME';
   display: block;
-  font-size: 11px;
+  font-size: 9px;
   letter-spacing: 6px;
   color: var(--accent);
   font-weight: 400;
@@ -2683,7 +2683,7 @@ const skillTags = computed(() => {
 }
 .theme-gray-slanted-business .sidebar-brand {
   color: var(--accent);
-  font-size: 9px;
+  font-size: 7px;
   letter-spacing: 3px;
   border-bottom: 1px solid rgba(255,255,255,0.12);
   padding-bottom: 6px;
@@ -2704,12 +2704,12 @@ const skillTags = computed(() => {
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .theme-gray-slanted-business .sidebar-name {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: #ffffff;
 }
 .theme-gray-slanted-business .sidebar-subtitle {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--accent);
   margin-top: 3px;
   font-weight: 500;
@@ -2722,7 +2722,7 @@ const skillTags = computed(() => {
   color: #ffffff;
   background: rgba(35, 127, 201, 0.85);
   padding: 3px 14px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   clip-path: polygon(0 0, 92% 0, 100% 100%, 0 100%);
   display: inline-block;
@@ -2731,7 +2731,7 @@ const skillTags = computed(() => {
   letter-spacing: 1px;
 }
 .theme-gray-slanted-business .sidebar-list {
-  font-size: 11.5px;
+  font-size: 9.5px;
   line-height: 1.8;
 }
 .theme-gray-slanted-business .sidebar-row {
@@ -2741,18 +2741,18 @@ const skillTags = computed(() => {
   margin-bottom: 6px;
 }
 .theme-gray-slanted-business .skill-cat-name {
-  font-size: 11.5px;
+  font-size: 9.5px;
   color: rgba(255,255,255,0.95) !important;
   font-weight: 600;
   margin-bottom: 2px;
 }
 .theme-gray-slanted-business .skill-tags {
-  font-size: 11px;
+  font-size: 9px;
   color: rgba(255,255,255,0.75) !important;
   line-height: 1.6;
 }
 .theme-gray-slanted-business .sidebar-cert {
-  font-size: 11.5px;
+  font-size: 9.5px;
   color: rgba(255,255,255,0.8);
   margin-bottom: 2px;
 }
@@ -2762,7 +2762,7 @@ const skillTags = computed(() => {
 .theme-gray-slanted-business.has-slanted-header .section-title {
   color: #ffffff;
   background: linear-gradient(110deg, var(--accent) 82%, transparent 82%);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   text-shadow: 0 1px 2px rgba(0,0,0,0.2);
   letter-spacing: 1px;
@@ -2774,21 +2774,21 @@ const skillTags = computed(() => {
   margin-bottom: 8px;
 }
 .theme-gray-slanted-business .entry-position {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: #232741;
 }
 .theme-gray-slanted-business .entry-date {
-  font-size: 11.5px;
+  font-size: 9.5px;
   color: #888;
 }
 .theme-gray-slanted-business .entry-sub {
-  font-size: 12px;
+  font-size: 10px;
   color: #555;
   margin-top: 2px;
 }
 .theme-gray-slanted-business .entry-desc {
-  font-size: 12px;
+  font-size: 10px;
   color: #444;
   line-height: 1.65;
   margin-top: 4px;
@@ -2796,14 +2796,14 @@ const skillTags = computed(() => {
 .theme-gray-slanted-business .entry-link {
   color: var(--accent);
   text-decoration: none;
-  font-size: 11.5px;
+  font-size: 9.5px;
   word-break: break-all;
 }
 .theme-gray-slanted-business .entry-link:hover {
   text-decoration: underline;
 }
 .theme-gray-slanted-business .section-body {
-  font-size: 12px;
+  font-size: 10px;
   color: #444;
   line-height: 1.7;
 }
@@ -2991,7 +2991,7 @@ const skillTags = computed(() => {
   padding: 4px 14px;
   clip-path: polygon(0 0, 100% 0, 90% 100%, 0 100%);
   display: inline-block;
-  font-size: 13px;
+  font-size: 11px;
 }
 .theme-gray-orange-creative .sidebar-tag {
   border: 1px solid var(--accent);
@@ -3000,7 +3000,7 @@ const skillTags = computed(() => {
   border-radius: 0 8px 0 8px;
   display: inline-block;
   margin: 2px;
-  font-size: 11px;
+  font-size: 9px;
 }
 .theme-gray-orange-creative .main-right {
   border-left: 3px solid var(--accent);
@@ -3016,7 +3016,7 @@ const skillTags = computed(() => {
   content: '○';
   color: var(--accent);
   margin-right: 6px;
-  font-size: 16px;
+  font-size: 14px;
 }
 .theme-blue-dot-media .entry-desc::before {
   content: '✓ ';
@@ -3044,7 +3044,7 @@ const skillTags = computed(() => {
   content: '●';
   color: var(--primary);
   margin-right: 6px;
-  font-size: 8px;
+  font-size: 7px;
   vertical-align: middle;
 }
 
@@ -3061,7 +3061,7 @@ const skillTags = computed(() => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 2px;
-  font-size: 13px;
+  font-size: 11px;
   border-bottom: 1px solid var(--text);
 }
 .theme-minimal-line-sales .center-header {
@@ -3088,12 +3088,12 @@ const skillTags = computed(() => {
   background: rgba(74,74,74,0.08);
   padding: 4px 10px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 11px;
 }
 .theme-grid-bg-engineer .section-title::after {
   content: attr(data-en);
   display: inline;
-  font-size: 10px;
+  font-size: 8px;
   color: var(--accent);
   margin-left: 8px;
   text-transform: uppercase;
@@ -3114,13 +3114,13 @@ const skillTags = computed(() => {
   padding: 3px 14px;
   border-radius: 20px;
   display: inline-block;
-  font-size: 13px;
+  font-size: 11px;
 }
 .theme-blue-dashed-finance .entry-desc::before {
   content: '◆';
   color: var(--primary);
   margin-right: 5px;
-  font-size: 8px;
+  font-size: 7px;
 }
 
 /* ---- t19 蓝标签金融精简版 ---- */
@@ -3149,7 +3149,7 @@ const skillTags = computed(() => {
   border: 1px solid var(--primary);
   padding: 2px 10px;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 9px;
 }
 
 /* ---- t20 浅蓝竹子国风双栏 ---- */
@@ -3293,7 +3293,7 @@ const skillTags = computed(() => {
 }
 .theme-dark-symmetric-ops .center-name {
   color: var(--accent);
-  font-size: 28px;
+  font-size: 26px;
 }
 .theme-dark-symmetric-ops .two-col-main {
   display: grid;
@@ -3402,14 +3402,14 @@ const skillTags = computed(() => {
 }
 .theme-magazine-bw-art .center-name {
   font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 36px;
+  font-size: 34px;
   font-weight: 900;
   letter-spacing: -1px;
 }
 .theme-magazine-bw-art .center-name::after {
   content: 'No. 001';
   float: right;
-  font-size: 11px;
+  font-size: 9px;
   color: var(--accent);
   font-weight: 400;
   letter-spacing: 2px;
@@ -3417,7 +3417,7 @@ const skillTags = computed(() => {
 }
 .theme-magazine-bw-art .section-title {
   font-family: 'Georgia', serif;
-  font-size: 18px;
+  font-size: 16px;
   text-transform: uppercase;
   letter-spacing: 3px;
   border-top: 1px solid var(--text);
@@ -3469,7 +3469,7 @@ const skillTags = computed(() => {
 }
 .theme-muji-japanese-minimal .section-title {
   font-weight: 300;
-  font-size: 12px;
+  font-size: 10px;
   letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--secondary);
@@ -3492,12 +3492,12 @@ const skillTags = computed(() => {
 }
 .theme-typewriter-letter-retro .center-name {
   font-family: 'Courier New', 'Consolas', monospace;
-  font-size: 22px;
+  font-size: 20px;
 }
 .theme-typewriter-letter-retro .section-title {
   font-family: 'Courier New', monospace;
   text-transform: uppercase;
-  font-size: 12px;
+  font-size: 10px;
 }
 .theme-typewriter-letter-retro .section-title::after {
   content: '_';
@@ -3507,7 +3507,7 @@ const skillTags = computed(() => {
 @keyframes blink { 50% { opacity: 0; } }
 .theme-typewriter-letter-retro .entry-desc {
   font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.6;
 }
 
@@ -3584,7 +3584,7 @@ const skillTags = computed(() => {
   height: 68px;
 }
 .theme-pop-art-clash .info-strip {
-  font-size: 9.5px;
+  font-size: 7.5px;
   gap: 2px 8px;
   color: rgba(255,255,255,0.85);
 }
@@ -3643,7 +3643,7 @@ const skillTags = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 900;
   font-family: 'KaiTi', serif;
 }
@@ -3698,7 +3698,7 @@ const skillTags = computed(() => {
   top: -10px; left: 16px;
   background: var(--bg);
   padding: 0 8px;
-  font-size: 10px;
+  font-size: 8px;
   color: var(--accent);
 }
 .theme-kraft-archive-retro .center-header::after {
@@ -3711,7 +3711,7 @@ const skillTags = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 8px;
   color: var(--accent);
   transform: rotate(-15deg);
 }
@@ -3732,7 +3732,7 @@ const skillTags = computed(() => {
   top: 20px; left: 0; right: 0;
   text-align: center;
   color: rgba(255,255,255,0.3);
-  font-size: 14px;
+  font-size: 12px;
   letter-spacing: 40px;
 }
 .theme-aurora-gradient-north .center-header {
@@ -3781,7 +3781,7 @@ const skillTags = computed(() => {
   text-align: center;
   letter-spacing: 3px;
   text-transform: uppercase;
-  font-size: 12px;
+  font-size: 10px;
 }
 .theme-minimal-line-sketch .section {
   border-bottom: 1px solid rgba(0,0,0,0.05);
@@ -3797,14 +3797,14 @@ const skillTags = computed(() => {
   content: '🌿';
   position: absolute;
   bottom: 10px; right: 10px;
-  font-size: 60px;
+  font-size: 58px;
   opacity: 0.08;
 }
 .theme-green-eco-natural .sidebar::after {
   content: '🍃';
   position: absolute;
   top: 20px; right: 20px;
-  font-size: 40px;
+  font-size: 38px;
   opacity: 0.08;
 }
 /* 侧栏内文字用白色/浅色 */
@@ -3838,7 +3838,7 @@ const skillTags = computed(() => {
 .theme-green-eco-natural .entry-desc::before {
   content: '🌱';
   margin-right: 4px;
-  font-size: 10px;
+  font-size: 8px;
 }
 
 /* ---- t46 黑金鎏金奢华 ---- */
@@ -3908,7 +3908,7 @@ const skillTags = computed(() => {
   height: 68px;
 }
 .theme-mosaic-collage-art .info-strip {
-  font-size: 9.5px;
+  font-size: 7.5px;
   gap: 2px 8px;
   color: rgba(255,255,255,0.85);
 }
@@ -3991,7 +3991,7 @@ const skillTags = computed(() => {
   top: -12px; left: 16px;
   background: var(--bg);
   padding: 0 6px;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--accent);
 }
 .theme-steampunk-industrial .center-header::after {
@@ -4000,7 +4000,7 @@ const skillTags = computed(() => {
   bottom: -12px; right: 16px;
   background: var(--bg);
   padding: 0 6px;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--accent);
 }
 .theme-steampunk-industrial .section-title {
@@ -4019,12 +4019,12 @@ const skillTags = computed(() => {
 .theme-academic-minimal-bw .center-name {
   font-family: 'Georgia', 'Times New Roman', serif;
   font-weight: 400;
-  font-size: 24px;
+  font-size: 22px;
   letter-spacing: 2px;
 }
 .theme-academic-minimal-bw .section-title {
   font-family: 'Georgia', serif;
-  font-size: 14px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 2px;
   text-align: center;
@@ -4038,7 +4038,7 @@ const skillTags = computed(() => {
 .theme-academic-minimal-bw .entry-desc {
   font-family: 'Georgia', serif;
   line-height: 1.7;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 /* ============ 通用增强：仅补充缺失细节，不覆盖布局尺寸 ============ */
