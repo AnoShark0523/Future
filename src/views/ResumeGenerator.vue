@@ -719,6 +719,14 @@ onMounted(() => {
 
 <template>
   <div class="container mx-auto px-4 py-6 max-w-[1600px]">
+    <!-- 字数提示横幅 -->
+    <div class="word-limit-banner">
+      <span class="banner-icon">!</span>
+      <span class="banner-text">
+        <strong>注意：</strong>PDF 导出为单页 A4，请自行控制各模块字数。内容过多会导致排版拥挤或显示不全，建议精简描述、突出重点。可参考右侧预览效果调整。
+      </span>
+    </div>
+
     <!-- 标题栏 -->
     <div class="flex flex-wrap items-center justify-between mb-6 gap-4">
       <div>
@@ -1253,7 +1261,7 @@ onMounted(() => {
           </div>
 
           <!-- 预览容器 -->
-          <div class="bg-gray-300 rounded-lg p-4 overflow-auto" style="max-height: 80vh;">
+          <div class="bg-gray-300 rounded-lg p-2 overflow-auto flex justify-center" style="max-height: 80vh;">
             <ResumePreview
               :data="resumeData"
               :style="currentStyle"
@@ -1357,4 +1365,38 @@ onMounted(() => {
 
 <style scoped>
 /* 组件局部样式 */
+
+/* 字数提示横幅 */
+.word-limit-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(245, 158, 11, 0.08));
+  border: 1.5px solid rgba(251, 191, 36, 0.35);
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.1);
+}
+.banner-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.banner-text {
+  font-size: 13.5px;
+  color: #d97706;
+  line-height: 1.5;
+}
+.banner-text strong {
+  color: #b45309;
+}
 </style>

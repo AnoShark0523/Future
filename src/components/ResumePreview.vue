@@ -258,6 +258,7 @@ const skillTags = computed(() => {
     :style="{
       transform: `scale(${scale / 100})`,
       transformOrigin: 'top center',
+      margin: '0 auto',
       width: '210mm',
       minHeight: '297mm',
       background: s.backgroundColor,
@@ -538,75 +539,6 @@ const skillTags = computed(() => {
             </section>
           </div>
         </div>
-      </main>
-    </div>
-
-    <!-- ==================== 居中横幅布局 ==================== -->
-    <div v-else-if="s.layout === 'banner-center'" class="layout-banner-center content-layer">
-      <header class="center-header">
-        <div class="photo-wrap center-photo">
-          <img v-if="p.photo" :src="p.photo" class="photo-img" />
-          <div v-else class="photo-placeholder">照片</div>
-        </div>
-        <div v-if="p.name" class="center-name">{{ p.name }}</div>
-        <div v-if="p.title" class="center-title-text">{{ p.title }}</div>
-        <div class="contact-strip" v-if="contactItems.length || basicItems.length">
-          <span v-for="(item, idx) in contactItems" :key="'c' + idx" class="strip-item">{{ item.icon }} {{ item.text }}</span>
-          <span v-for="item in basicItems" :key="item.label" class="strip-item">{{ item.label }}：{{ item.value }}</span>
-        </div>
-      </header>
-
-      <main class="center-main">
-        <section v-if="p.summary" class="section">
-          <p class="section-body center">{{ p.summary }}</p>
-        </section>
-
-        <section v-if="d.selfEvaluation" class="section">
-          <div class="section-title"><span class="section-icon">📝</span>自我评价</div>
-          <p class="section-body justify">{{ d.selfEvaluation }}</p>
-        </section>
-
-        <section v-if="d.experience.length" class="section">
-          <div class="section-title"><span class="section-icon">💼</span>工作经历</div>
-          <div v-for="exp in d.experience" :key="exp.id" class="entry-row">
-            <div class="entry-meta">
-              <span class="entry-position">{{ exp.position }}<span v-if="exp.company"> · {{ exp.company }}</span></span>
-              <span class="entry-date">{{ formatDateRange(exp.startDate, exp.endDate) }}</span>
-            </div>
-            <p v-if="exp.description" class="entry-desc">{{ exp.description }}</p>
-          </div>
-        </section>
-
-        <section v-if="d.projects.length" class="section">
-          <div class="section-title"><span class="section-icon">🚀</span>项目经验</div>
-          <div v-for="proj in d.projects" :key="proj.id" class="entry-row">
-            <div class="entry-meta">
-              <span class="entry-position">{{ proj.name }}<span v-if="proj.role"> · {{ proj.role }}</span><span v-if="proj.link"> · <a :href="proj.link" target="_blank" class="entry-link" v-html="formatUrl(proj.link)"></a></span></span>
-              <span class="entry-date">{{ formatDateRange(proj.startDate, proj.endDate) }}</span>
-            </div>
-            <p v-if="proj.description" class="entry-desc">{{ proj.description }}</p>
-          </div>
-        </section>
-
-        <section v-if="d.skills.length" class="section">
-          <div class="section-title"><span class="section-icon">⚡</span>专业技能</div>
-          <div v-for="cat in d.skills" :key="cat.id" class="skill-block">
-            <div class="skill-cat-name">{{ cat.name }}</div>
-            <div class="skill-tags">{{ cat.skills.filter(Boolean).join('、') }}</div>
-          </div>
-        </section>
-
-        <section v-if="d.certifications.length || d.languages.length" class="section">
-          <div class="section-title"><span class="section-icon">🏅</span>其他</div>
-          <div v-for="cert in d.certifications" :key="cert.id" class="cert-row">
-            <strong>{{ cert.name }}</strong>
-            <span v-if="cert.issuer"> - {{ cert.issuer }}</span>
-            <span v-if="cert.date"> ({{ cert.date }})</span>
-          </div>
-          <div v-for="lang in d.languages" :key="lang.id" class="lang-row">
-            <strong>{{ lang.name }}</strong><span v-if="lang.proficiency">：{{ lang.proficiency }}</span>
-          </div>
-        </section>
       </main>
     </div>
 
@@ -1735,38 +1667,7 @@ const skillTags = computed(() => {
   padding: 16px 22px;
 }
 
-/* ==================== 布局：居中横幅 ==================== */
-.layout-banner-center {
-  min-height: 297mm;
-  background: var(--bg);
-}
-.center-header {
-  padding: 4px 24px 6px;
-  text-align: center;
-  position: relative;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  color: var(--light);
-}
-.has-photo-bg .center-header {
-  background: transparent;
-  color: var(--light);
-}
-.center-photo {
-  width: 58px;
-  height: 58px;
-  margin: 0 auto 3px;
-  border: 3px solid rgba(255, 255, 255, 0.4);
-}
-.center-name {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-.center-title-text {
-  font-size: 12px;
-  opacity: 0.9;
-  margin-top: 1px;
-}
+/* contact-strip 基础样式（two-column 等布局共用） */
 .contact-strip {
   display: flex;
   flex-wrap: wrap;
@@ -1784,9 +1685,6 @@ const skillTags = computed(() => {
 }
 .strip-item {
   white-space: nowrap;
-}
-.center-main {
-  padding: 8px 28px;
 }
 
 /* ==================== 布局：时间轴 ==================== */
@@ -2584,11 +2482,6 @@ const skillTags = computed(() => {
 }
 .layout-dark-theme.has-geometric-bg .bg-geometric {
   opacity: 0.4;
-}
-
-/* banner-center + photo-bg 时 header 文字色 */
-.has-photo-bg .center-header {
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* sidebar 内的圆环颜色覆盖 */
@@ -4180,16 +4073,6 @@ const skillTags = computed(() => {
   flex-shrink: 0;
 }
 
-/* banner-center 居中 */
-.center-header {
-  text-align: center;
-}
-.center-header .photo-wrap {
-  width: 90px;
-  height: 90px;
-  margin: 0 auto 12px;
-}
-
 /* timeline 节点细节 */
 .timeline-item {
   position: relative;
@@ -4344,6 +4227,103 @@ const skillTags = computed(() => {
 }
 .theme-aurora-gradient-north .section-body {
   color: rgba(232,232,240,0.8);
+}
+
+/* ============ 全局布局对齐修正：统一左右内边距，消除身份信息偏右下 ============ */
+/* 主内容区：左右内边距严格相等 */
+.banner-main,
+.center-main,
+.timeline-main,
+.clean-main,
+.two-col-main,
+.card-grid,
+.dashboard-main,
+.dark-main,
+.split-left,
+.split-right,
+.main-right,
+.main-left {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+/* 布局容器外层：左右严格相等 */
+.layout-timeline,
+.layout-clean-center,
+.layout-two-column,
+.layout-elegant-minimal,
+.layout-modern-split,
+.layout-dark-theme,
+.layout-dashboard {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+/* 头部容器：左右严格相等，避免姓名/岗位条偏右下 */
+.banner-header,
+.center-header,
+.timeline-header,
+.clean-header,
+.two-col-header,
+.card-header,
+.dark-header,
+.dashboard-header,
+.main-header,
+.sidebar-mini {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+/* 主题自定 center-header 的特殊左右padding锁定对称 + 顶部padding压缩（姓名上移） */
+.theme-desert-wilderness .center-header,
+.theme-forest-photo-luxury .center-header,
+.theme-magazine-bw-art .center-header,
+.theme-muji-japanese-minimal .center-header,
+.theme-journal-tape-cute .center-header,
+.theme-typewriter-letter-retro .center-header,
+.theme-mediterranean-ocean .center-header,
+.theme-chinese-red-festive .center-header,
+.theme-aurora-gradient-north .center-header {
+  padding-left: 28px !important;
+  padding-right: 28px !important;
+  padding-top: 10px !important;
+}
+/* 默认 center-header 顶部也压缩，姓名整体上移 */
+.center-header {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+/* center-main 顶部padding压缩，模块标题上移 */
+.center-main {
+  padding-top: 4px !important;
+}
+/* 联系条/身份条：内部左右padding相等 */
+.contact-strip,
+.info-strip,
+.basic-bar,
+.clean-meta,
+.dark-meta,
+.dashboard-meta {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  box-sizing: border-box;
+}
+/* 模块标题：左缩进统一，避免基准线错位 */
+.section-title {
+  padding-left: 8px !important;
+}
+.has-slanted-header .section-title {
+  padding-left: 12px !important;
+}
+/* 卡片/子列：左右padding一致 */
+.card-section,
+.timeline-card,
+.layout-two-column .col {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+/* 侧边栏：左右padding锁定对称 */
+.sidebar {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  box-sizing: border-box;
 }
 
 /* ========== 打印样式 ========== */

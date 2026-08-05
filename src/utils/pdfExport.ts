@@ -52,13 +52,15 @@ export async function exportResumeToPDF(
   onProgress?.('正在加载图片资源...')
   await waitForImages(resumeEl)
 
-  // 3. 保存原始样式，临时清除预览缩放 transform
-  //    原因：预览区有 scale 缩放，html2canvas 截图时需要按原始尺寸渲染
-  //    注意：只清除 transform，不改变任何布局属性，保证模板视觉不变
+  // 3. 保存原始样式，临时清除预览缩放 transform 和居中 margin
+  //    原因：预览区有 scale 缩放 + margin:0 auto 居中，html2canvas 截图时需要按原始尺寸渲染
+  //    注意：只清除 transform/margin，不改变任何布局属性，保证模板视觉不变
   const origTransform = resumeEl.style.transform
   const origTransformOrigin = resumeEl.style.transformOrigin
+  const origMargin = resumeEl.style.margin
   resumeEl.style.transform = 'none'
   resumeEl.style.transformOrigin = 'top left'
+  resumeEl.style.margin = '0'
 
   // 等待一帧让浏览器重排
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
@@ -80,9 +82,10 @@ export async function exportResumeToPDF(
     onclone: (_clonedDoc, clonedElement) => {
       const el = clonedElement as HTMLElement
 
-      // 清除预览缩放 transform，按原始 A4 尺寸渲染
+      // 清除预览缩放 transform 和居中 margin，按原始 A4 尺寸渲染
       el.style.transform = 'none'
       el.style.transformOrigin = 'top left'
+      el.style.margin = '0'
 
       // 修复 html2canvas 不渲染 flex align-items: stretch 的问题
       // 现象：sidebar 背景只覆盖内容高度，未填满到容器底部
@@ -106,6 +109,7 @@ export async function exportResumeToPDF(
   // 恢复原始样式
   resumeEl.style.transform = origTransform
   resumeEl.style.transformOrigin = origTransformOrigin
+  resumeEl.style.margin = origMargin
 
   // 5. 生成 PDF
   onProgress?.('正在生成 PDF 文件...')

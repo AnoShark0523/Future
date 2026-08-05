@@ -8,7 +8,6 @@ export type ResumeLayout =
   | 'sidebar-left'
   | 'sidebar-right'
   | 'banner-top'
-  | 'banner-center'
   | 'timeline'
   | 'clean-center'
   | 'two-column'
@@ -38,7 +37,6 @@ export const layoutCategories: Record<ResumeLayout, string> = {
   'sidebar-left': '左侧栏',
   'sidebar-right': '右侧栏',
   'banner-top': '顶部横幅',
-  'banner-center': '居中通栏',
   'timeline': '时间轴',
   'clean-center': '简洁居中',
   'two-column': '双栏分栏',
@@ -54,12 +52,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
 
   // ======== 第1组：通用前置规则模板（10套）========
 
-  // 模板2：旷野风景全屏背景简约通栏款
-  { id: 't02', name: '旷野风景通栏文艺', category: '居中通栏', layout: 'banner-center',
-    theme: 'desert-wilderness', description: '低透明度沙漠风景背景+白色圆角内容卡+圆形头像',
-    primaryColor: '#c19a6b', secondaryColor: '#8b7355', backgroundColor: '#fffbf0', textColor: '#3a3a3a', lightText: '#ffffff', accentColor: '#c19a6b',
-    features: ['photo-bg', 'rounded-card', 'circle-photo', 'dashed-divider', 'line-icons'] },
-
   // 模板5：时间轴纵向色块侧边履历技术岗
   { id: 't05', name: '彩色时间轴技术岗', category: '时间轴', layout: 'timeline',
     theme: 'macaron-timeline-tech', description: '左侧固定信息栏+右侧垂直时间轴+彩色圆角色块',
@@ -71,12 +63,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     theme: 'dark-code-pm', description: '炭黑底色+//注释板块分割+黄色高亮标题+代码风格',
     primaryColor: '#222228', secondaryColor: '#2d2d35', backgroundColor: '#222228', textColor: '#e0e0e0', lightText: '#ffffff', accentColor: '#f1c40f',
     features: ['code-style', 'yellow-line', 'icon-cards', 'circle-photo'] },
-
-  // 模板10：森林狼王艺术摄影背景高端商务文艺
-  { id: 't10', name: '森林摄影轻奢文艺', category: '居中通栏', layout: 'banner-center',
-    theme: 'forest-photo-luxury', description: '暗调森林摄影背景+白色内容主体+方形人像+英文装饰标题',
-    primaryColor: '#2c3e2d', secondaryColor: '#4a5d4b', backgroundColor: '#ffffff', textColor: '#2c3e50', lightText: '#ffffff', accentColor: '#8b7355',
-    features: ['photo-bg', 'frame-title', 'square-photo', 'dashed-divider', 'line-icons'] },
 
   // ======== 第2组：新媒体/传媒/市场系列（10套）========
 
@@ -198,12 +184,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     primaryColor: '#5a4a3a', secondaryColor: '#7a6a5a', backgroundColor: '#f5f0e0', textColor: '#3a2a1a', lightText: '#ffffff', accentColor: '#8b0000',
     features: ['aged-paper', 'monospace-font', 'red-mark', 'signature', 'circle-photo'] },
 
-  // 模板37：蓝白地中海海洋风
-  { id: 't37', name: '蓝白地中海海洋', category: '居中通栏', layout: 'banner-center',
-    theme: 'mediterranean-ocean', description: '蓝白配色+波浪纹装饰+圆形舷窗照片+海洋元素',
-    primaryColor: '#1a5276', secondaryColor: '#2e86c1', backgroundColor: '#f0f8ff', textColor: '#1a3a5a', lightText: '#ffffff', accentColor: '#2e86c1',
-    features: ['wave-deco', 'porthole-photo', 'ocean-elements', 'circle-photo'] },
-
   // 模板38：渐变波普艺术撞色
   { id: 't38', name: '波普艺术撞色', category: '卡片模块', layout: 'card-style',
     theme: 'pop-art-clash', description: '高饱和撞色+网点背景+对话框元素+波普圆点',
@@ -216,12 +196,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     primaryColor: '#5b7c99', secondaryColor: '#7a9ab5', backgroundColor: '#fafafa', textColor: '#3a4a5a', lightText: '#ffffff', accentColor: '#e8956a',
     features: ['nordic-illustration', 'geo-shape', 'circle-photo', 'soft-color'] },
 
-  // 模板40：中国红喜庆国风
-  { id: 't40', name: '中国红国风喜庆', category: '居中通栏', layout: 'banner-center',
-    theme: 'chinese-red-festive', description: '大红底色+金色祥云纹+竖排标题+印章装饰+回纹边框',
-    primaryColor: '#c41e3a', secondaryColor: '#8b0000', backgroundColor: '#fff5f5', textColor: '#4a0000', lightText: '#ffd700', accentColor: '#ffd700',
-    features: ['cloud-pattern', 'vertical-title', 'seal-stamp', 'meander-border', 'circle-photo'] },
-
   // 模板41：暗紫赛博朋克霓虹
   { id: 't41', name: '赛博朋克霓虹紫', category: '深色主题', layout: 'dark-theme',
     theme: 'cyberpunk-neon-purple', description: '暗紫底色+霓虹粉紫青光效+故障艺术+发光边框',
@@ -233,12 +207,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     theme: 'kraft-archive-retro', description: '牛皮纸底色+打孔档案标签+红色印章+复古边框',
     primaryColor: '#8b6914', secondaryColor: '#a07820', backgroundColor: '#d4b896', textColor: '#3a2a1a', lightText: '#ffffff', accentColor: '#8b0000',
     features: ['kraft-paper', 'archive-tag', 'red-stamp', 'vintage-border', 'circle-photo'] },
-
-  // 模板43：渐变极光北极光风
-  { id: 't43', name: '极光渐变北极光', category: '居中通栏', layout: 'banner-center',
-    theme: 'aurora-gradient-north', description: '极光绿紫渐变背景+星空点缀+白色半透明卡片+梦幻光效',
-    primaryColor: '#00b894', secondaryColor: '#6c5ce7', backgroundColor: '#0a0a2e', textColor: '#e8e8f0', lightText: '#ffffff', accentColor: '#00cec9',
-    features: ['aurora-gradient', 'star-sparkle', 'glass-card', 'glow-effect', 'circle-photo'] },
 
   // 模板44：极简线条素描风
   { id: 't44', name: '极简线条素描', category: '优雅极简', layout: 'elegant-minimal',
@@ -263,12 +231,6 @@ export const resumeTemplateStyles: ResumeTemplateStyle[] = [
     theme: 'mosaic-collage-art', description: '彩色马赛克方块拼接背景+不规则内容区块+艺术拼贴感',
     primaryColor: '#e74c3c', secondaryColor: '#3498db', backgroundColor: '#fafafa', textColor: '#2c3e50', lightText: '#ffffff', accentColor: '#f39c12',
     features: ['mosaic-bg', 'irregular-block', 'art-collage', 'circle-photo'] },
-
-  // 模板48：水彩晕染梦幻渐变
-  { id: 't48', name: '水彩晕染梦幻', category: '居中通栏', layout: 'banner-center',
-    theme: 'watercolor-dream', description: '水彩晕染背景+柔和渐变+白色半透明卡片+梦幻色调',
-    primaryColor: '#d63384', secondaryColor: '#e85d9e', backgroundColor: '#fff5f5', textColor: '#3a2a3a', lightText: '#ffffff', accentColor: '#6a4c93',
-    features: ['watercolor-bg', 'soft-gradient', 'glass-card', 'circle-photo'] },
 
   // 模板49：工业蒸汽朋克风
   { id: 't49', name: '工业蒸汽朋克', category: '深色主题', layout: 'dark-theme',

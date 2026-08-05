@@ -1,42 +1,37 @@
-# Dependencies
 node_modules/
-.pnp
-.pnp.js
-
-# Testing
-coverage/
-
-# Production
 dist/
-build/
-
-# Misc
 .DS_Store
+*.local
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# PDF 测试产物
+pdf-test-output/
+e2e-pdf-test.cjs
+render-pdf-clean.cjs
+screenshot-pdf.cjs
+test-mammoth-output.html
+verify-embedded-node.mjs
+verify-final.mjs
+verify-pdf.mjs
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# public 下的测试/调试文件
+public/e2e-pdf-verify.html
+public/e2e-pdf.js
+public/exported-preview.pdf
+public/test-export.pdf
+public/test-import.pdf
+public/test-import.pdf.resume.attachment.json
+public/test-import.pdf.resume.textlayer.json
+public/verify-pdf-ef-v2.html
+public/verify-pdf-ef.html
+public/word-html/
 
-# Vercel
-.vercel
+# OCR 训练数据（体积过大）
+chi_sim.traineddata
+eng.traineddata
 
-# TypeScript
-*.tsbuildinfo
+# 编辑器临时文件
+*.swp
+*.swo
+*~
