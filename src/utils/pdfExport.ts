@@ -117,25 +117,9 @@ export async function exportResumeToPDF(
   const pdf = new jsPDF('p', 'mm', 'a4')
 
   const imgWidthMm = A4_WIDTH_MM
-  let imgHeightMm = (canvas.height * imgWidthMm) / canvas.width
-
-  // 项目约束：内容略超 A4 高度（≤10%）时缩放到单页，而非创建第二页
-  if (imgHeightMm <= A4_HEIGHT_MM * 1.1) {
-    // 单页：宽度填满 A4，高度按比例（可能略压缩，视觉影响极小）
-    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidthMm, A4_HEIGHT_MM)
-  } else {
-    // 内容超过 A4 高度 10% 以上，多页切片
-    let heightLeft = imgHeightMm
-    let position = 0
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidthMm, imgHeightMm)
-    heightLeft -= A4_HEIGHT_MM
-    while (heightLeft > 0) {
-      position -= A4_HEIGHT_MM
-      pdf.addPage()
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidthMm, imgHeightMm)
-      heightLeft -= A4_HEIGHT_MM
-    }
-  }
+  // 强制单页：无论内容多高，都缩放到 A4 单页
+  // 宽度填满 A4，高度强制为 A4 高度（整体缩放，不产生第二页）
+  pdf.addImage(imgData, 'JPEG', 0, 0, imgWidthMm, A4_HEIGHT_MM)
 
   // 6. 准备嵌入的简历数据
   onProgress?.('正在嵌入简历数据...')
