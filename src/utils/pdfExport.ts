@@ -139,8 +139,8 @@ export async function exportResumeToPDF(
   // 7. 写入 invisible 文本层（使 PDF 拥有可提取的文本内容）
   //    用 jsPDF 默认 Helvetica 字体写入纯 ASCII 的 __RESUME_DATA__ 标记，
   //    renderingMode='invisible'（PDF Tr=3）使文本不可见，不影响图片排版
-  //    注意：所有块写在页面顶部同一位置（invisible 不可见，不重叠不影响视觉），
-  //    避免 y 随 lineIdx 增长导致超出页面边界、pdfjs-dist 无法提取
+  //    注意：不使用 maxWidth，因为 maxWidth 会导致文本换行，
+  //    jsPDF 换行时会自动创建新页面，造成 PDF 变成两页
   onProgress?.('正在写入文本层...')
   pdf.setTextColor(255, 255, 255)
   pdf.setFontSize(1)
@@ -151,7 +151,6 @@ export async function exportResumeToPDF(
     pdf.text(chunk, 0, 1, {
       baseline: 'top',
       align: 'left',
-      maxWidth: A4_WIDTH_MM,
       renderingMode: 'invisible',
     })
   }
