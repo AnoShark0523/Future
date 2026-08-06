@@ -189,10 +189,12 @@ function mergeOptimizedData(original: ResumeData, optimized: any): ResumeData {
 
   if (!optimized || typeof optimized !== 'object') return result
 
-  // 合并 personal（只更新文案字段，不更新联系方式）
+  // 合并 personal（不更新 summary，防止 AI 把自我评价内容挪到个人简介）
+  // 原因：AI 经常把 selfEvaluation 的内容拆分一部分到 personal.summary，
+  //       导致自我评价被切割。直接拒绝 summary 修改即可，其余字段正常合并。
   if (optimized.personal) {
-    if (optimized.personal.summary) result.personal.summary = optimized.personal.summary
     if (optimized.personal.title) result.personal.title = optimized.personal.title
+    // 故意不采纳 optimized.personal.summary，保留用户原始的个人简介
   }
 
   // 合并 selfEvaluation
