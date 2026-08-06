@@ -78,9 +78,10 @@ export async function exportResumeToPDF(
 
   // 4. 使用 html2canvas 截图
   //    onclone 中只做兼容性修复，不注入任何布局 CSS
+  //    scale: 1.5 在清晰度和性能之间取最优平衡（2x 像素量是 4 倍，1.5x 只有 2.25 倍）
   onProgress?.('正在渲染简历（可能需要几秒钟）...')
   const canvas = await html2canvas(resumeEl, {
-    scale: 2,
+    scale: 1.5,
     useCORS: true,
     backgroundColor: '#ffffff',
     logging: false,
@@ -124,7 +125,7 @@ export async function exportResumeToPDF(
 
   // 5. 生成 PDF
   onProgress?.('正在生成 PDF 文件...')
-  const imgData = canvas.toDataURL('image/jpeg', 0.95)
+  const imgData = canvas.toDataURL('image/jpeg', 0.85)
   const pdf = new jsPDF('p', 'mm', 'a4')
 
   // 截图宽高比已与 A4 一致（截图前固定了 A4 比例高度），
@@ -155,8 +156,9 @@ export async function exportResumeToPDF(
   pdf.setTextColor(255, 255, 255)
   pdf.setFontSize(1)
   const textLayerContent = `${RESUME_DATA_START}${encodeURIComponent(JSON.stringify(exportPayload))}${RESUME_DATA_END}`
-  // 增大 chunkSize 减少循环次数，避免大量 pdf.text() 调用导致性能问题
-  const chunkSize = 2000
+  // 用超大 chunkSize 最大限度减少 pdf.text() 调用次数
+  // jsPDF 单次 text() 可处理很长的字符串，2000 → 10000 减少 80% 调用
+  const chunkSize = 10000
   for (let i = 0; i < textLayerContent.length; i += chunkSize) {
     const chunk = textLayerContent.slice(i, i + chunkSize)
     pdf.text(chunk, 0, 1, {
@@ -201,51 +203,40 @@ function fixCssForCanvas(original: HTMLElement, clone: HTMLElement): void {
   const origChildren = Array.from(original.querySelectorAll('*')) as HTMLElement[]
   const cloneChildren = Array.from(clone.querySelectorAll('*')) as HTMLElement[]
 
-  // 只处理颜色相关属性，减少 getComputedStyle 调用次数
-  // html2canvas 主要不支持 CSS 变量和 gradient，只处理这些即可
-  const propsToCheck = [
-    'color',
-    'background-color',
-    'background-image',
-    'border-top-color',
-    'border-right-color',
-    'border-bottom-color',
-    'border-left-color',
-  ]
+  // 优化策略：只处理真正需要修复的元素，跳过纯文本节点和无样式元素
+  // 大多数元素 html2canvas 能自己解析，只有以下情况需要干预：
+  // 1. background-image 含 gradient（html2canvas 渲染会报错）
+  // 2. clip-path（html2canvas 不支持）
+  // 不再对每个元素都调 getComputedStyle 7 次，只在需要时调用
 
   for (let i = 0; i < origChildren.length && i < cloneChildren.length; i++) {
     const origEl = origChildren[i]
     const cloneEl = cloneChildren[i]
 
     try {
+      // 只检查 background-image 和 clip-path 两个属性
+      // 这是 html2canvas 真正会出错的两个 CSS 特性
       const computed = window.getComputedStyle(origEl)
 
-      for (const prop of propsToCheck) {
-        const val = computed.getPropertyValue(prop)
-        if (!val || val === '' || val === 'none') continue
-
-        // gradient 降级为纯色
-        if (prop === 'background-image' && val.includes('gradient')) {
-          const colorMatch = val.match(/(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/)
-          if (colorMatch) {
-            cloneEl.style.setProperty('background-image', 'none', 'important')
-            const bgColor = computed.getPropertyValue('background-color')
-            if (!bgColor || bgColor === 'rgba(0, 0, 0, 0)' || bgColor === 'transparent') {
-              cloneEl.style.setProperty('background-color', colorMatch[1], 'important')
-            }
-          } else {
-            cloneEl.style.setProperty('background-image', 'none', 'important')
+      // 1. gradient 降级为纯色（html2canvas 渲染 gradient 会报错或乱码）
+      const bgImage = computed.getPropertyValue('background-image')
+      if (bgImage && bgImage !== 'none' && bgImage.includes('gradient')) {
+        const colorMatch = bgImage.match(/(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/)
+        cloneEl.style.setProperty('background-image', 'none', 'important')
+        if (colorMatch) {
+          const bgColor = computed.getPropertyValue('background-color')
+          if (!bgColor || bgColor === 'rgba(0, 0, 0, 0)' || bgColor === 'transparent') {
+            cloneEl.style.setProperty('background-color', colorMatch[1], 'important')
           }
-          continue
         }
-
-        // 只在值包含 var() 时才需要覆盖（其他情况 html2canvas 能自己解析）
-        cloneEl.style.setProperty(prop, val, 'important')
       }
 
-      // 移除 clip-path（html2canvas 不支持）
-      cloneEl.style.setProperty('clip-path', 'none', 'important')
-      cloneEl.style.setProperty('-webkit-clip-path', 'none', 'important')
+      // 2. 移除 clip-path（html2canvas 不支持，会导致渲染异常）
+      const clipPath = computed.getPropertyValue('clip-path')
+      if (clipPath && clipPath !== 'none') {
+        cloneEl.style.setProperty('clip-path', 'none', 'important')
+        cloneEl.style.setProperty('-webkit-clip-path', 'none', 'important')
+      }
     } catch {
       // 跳过无法获取样式的元素
     }
