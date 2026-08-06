@@ -207,39 +207,45 @@ const lineChartPath = computed(() => {
 })
 
 const timelineItems = computed(() => {
-  type Merged = { id: string; date: string; title: string; subtitle: string; desc: string; type: 'edu' | 'exp' | 'proj' }
+  type Merged = { id: string; date: string; dateSort: string; title: string; subtitle: string; desc: string; link: string; type: 'edu' | 'exp' | 'proj' }
   const items: Merged[] = []
   d.value.experience.forEach((e) => {
     items.push({
       id: e.id,
-      date: e.startDate || '',
+      date: formatDateRange(e.startDate, e.endDate),
+      dateSort: e.startDate || '',
       title: e.position,
       subtitle: e.company,
       desc: e.description,
+      link: '',
       type: 'exp'
     })
   })
   d.value.education.forEach((e) => {
     items.push({
       id: e.id,
-      date: e.startDate || '',
+      date: formatDateRange(e.startDate, e.endDate),
+      dateSort: e.startDate || '',
       title: e.school,
       subtitle: `${e.degree}${e.major ? ' · ' + e.major : ''}`,
       desc: e.description,
+      link: '',
       type: 'edu'
     })
   })
   d.value.projects.forEach((e) => {
     items.push({
       id: e.id,
-      date: e.startDate || '',
+      date: formatDateRange(e.startDate, e.endDate),
+      dateSort: e.startDate || '',
       title: e.name,
       subtitle: e.role,
       desc: e.description,
+      link: e.link || '',
       type: 'proj'
     })
   })
-  return items.sort((a, b) => b.date.localeCompare(a.date))
+  return items.sort((a, b) => b.dateSort.localeCompare(a.dateSort))
 })
 
 const skillTags = computed(() => {
@@ -552,6 +558,9 @@ const skillTags = computed(() => {
         <div class="timeline-head-info">
           <div v-if="p.name" class="timeline-name">{{ p.name }}</div>
           <div v-if="p.title" class="timeline-title-text">{{ p.title }}</div>
+          <div class="basic-bar" v-if="basicItems.length">
+            <span v-for="item in basicItems" :key="item.label" class="basic-item">{{ item.label }}：{{ item.value }}</span>
+          </div>
           <div class="contact-bar" v-if="contactItems.length">
             <span v-for="(item, idx) in contactItems" :key="idx" class="contact-item">{{ item.icon }} {{ item.text }}</span>
           </div>
@@ -570,7 +579,7 @@ const skillTags = computed(() => {
             <div v-for="item in timelineItems" :key="item.id" class="timeline-item">
               <div class="timeline-dot" :class="`dot-${item.type}`"></div>
               <div class="entry-meta">
-                <span class="entry-position">{{ item.title }}<span v-if="item.subtitle"> · {{ item.subtitle }}</span></span>
+                <span class="entry-position">{{ item.title }}<span v-if="item.subtitle"> · {{ item.subtitle }}</span><span v-if="item.link"> · <a :href="item.link" target="_blank" class="entry-link" v-html="formatUrl(item.link)"></a></span></span>
                 <span class="entry-date">{{ item.date }}</span>
               </div>
               <p v-if="item.desc" class="entry-desc">{{ item.desc }}</p>
@@ -1718,6 +1727,25 @@ const skillTags = computed(() => {
   font-size: 10px;
   color: var(--secondary);
   margin-top: 2px;
+}
+.timeline-head-info .basic-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--text);
+}
+.timeline-head-info .basic-bar .basic-item {
+  white-space: nowrap;
+}
+.timeline-head-info .contact-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 3px;
+  font-size: 9px;
+  color: var(--text-tertiary, #888);
 }
 .timeline-list {
   position: relative;
