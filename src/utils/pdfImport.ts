@@ -1047,7 +1047,335 @@ export function parseResumeFromText(text: string): ResumeData {
     }
   }
 
+  // ---- 新增：增强项目经验提取（不修改原有逻辑，仅补充外部 PDF 遗漏的项目）----
+  enhanceProjectExtraction(cleanText, data)
+
   return data
+}
+
+// ==================== 增强项目经验提取（新增代码，不修改原有逻辑） ====================
+
+/**
+ * 英文月份名转数字
+ */
+function monthNameToNum(month: string): string {
+  const months: Record<string, string> = {
+    jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+    jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+    january: '01', february: '02', march: '03', april: '04', june: '06',
+    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12'
+  }
+  return months[month.toLowerCase()] || '01'
+}
+
+/**
+ * 增强版日期范围匹配
+ * 兼容外部 PDF 的各种日期格式：
+ * - 2024.1-2024.6（月不带前导零）
+ * - 2024/01-2024/06
+ * - 2024年1月-2024年6月
+ * - 2024.01-至今 / 2024-至今
+ * - 2024-2025（纯年份范围）
+ * - Jan 2024 - Jun 2024（英文月份）
+ * - 2024.01 ~ 2024.06（波浪号）
+ */
+function matchDateRangeEnhanced(line: string): { start: string; end: string; matchStart: number } | null {
+  // 1. YYYY[./-年]M[M] - YYYY[./-年]M[M] 或 YYYY[./-年]M[M] - 至今/现在/present
+  const m1 = line.match(/(\d{4})[\.\/\-年](\d{1,2})[月]?\s*(?:[-–—至到~—])\s*(\d{4})[\.\/\-年](\d{1,2})[月]?/i)
+  if (m1) {
+    return {
+      start: normalizeDate(m1[1] + '-' + m1[2]),
+      end: normalizeDate(m1[3] + '-' + m1[4]),
+      matchStart: m1.index ?? 0
+    }
+  }
+
+  // 2. YYYY[./-年]M[M] - 至今/现在/present
+  const m2 = line.match(/(\d{4})[\.\/\-年](\d{1,2})[月]?\s*(?:[-–—至到~—])\s*(至今|现在|present|Present|当前|Current)/i)
+  if (m2) {
+    return {
+      start: normalizeDate(m2[1] + '-' + m2[2]),
+      end: '至今',
+      matchStart: m2.index ?? 0
+    }
+  }
+
+  // 3. 纯年份范围 YYYY - YYYY 或 YYYY - 至今
+  const m3 = line.match(/(\d{4})\s*(?:[-–—至到~—])\s*(\d{4}|至今|现在|present|Present|当前|Current)/i)
+  if (m3) {
+    return {
+      start: m3[1],
+      end: /至今|现在|present|Present|当前|Current/i.test(m3[2]) ? '至今' : m3[2],
+      matchStart: m3.index ?? 0
+    }
+  }
+
+  // 4. 英文月份 Jan 2024 - Jun 2024
+  const m4 = line.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s*(\d{4})\s*(?:[-–—至到~—])\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s*(\d{4})/i)
+  if (m4) {
+    return {
+      start: m4[2] + '-' + monthNameToNum(m4[1]),
+      end: m4[4] + '-' + monthNameToNum(m4[3]),
+      matchStart: m4.index ?? 0
+    }
+  }
+
+  // 5. 英文月份 Jan 2024 - Present
+  const m5 = line.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s*(\d{4})\s*(?:[-–—至到~—])\s*(Present|Now|Current|至今)/i)
+  if (m5) {
+    return {
+      start: m5[2] + '-' + monthNameToNum(m5[1]),
+      end: '至今',
+      matchStart: m5.index ?? 0
+    }
+  }
+
+  return null
+}
+
+/**
+ * 增强版项目经验章节提取
+ * 兼容外部 PDF 的各种章节标题格式：
+ * - 【项目经验】、[项目经历]、项目经验：
+ * — 项目经验 —、═ 项目经验 ═
+ * - 项目经验 Projects（双语标题）
+ * - PROJECT EXPERIENCE（全大写）
+ */
+function extractProjectSectionEnhanced(text: string): string | null {
+  // 已知下一个章节的关键词（用于截断项目章节内容）
+  const nextSectionKeywords = [
+    '专业技能', '技能特长', '技能', 'Skills', 'Technical Skills', '核心技能',
+    '获奖证书', '证书荣誉', '证书', '荣誉', '奖项', 'Certificates', 'Awards',
+    '语言能力', '语言', 'Languages',
+    '自我评价', '自我评估', '个人评价', 'Self Evaluation',
+    '教育背景', '教育经历', '学历', 'Education',
+    '工作经历', '工作经验', '实习经历', 'Work Experience',
+    '个人简介', '自我简介', 'Profile', 'Summary',
+    '其他', 'Other', '兴趣爱好', '兴趣'
+  ]
+
+  // 项目章节标题的各种可能格式
+  const titlePatterns = [
+    // 标准：项目经验/项目经历/项目 + 可能的修饰符
+    /(?:^|\n)\s*[【\[（(]?\s*项目(?:经验|经历|描述|列表|展示)?\s*[】\]）)]?\s*[:：]?\s*(?:\n|$)/i,
+    // 双语：项目经验 Projects / 项目经历 Project Experience
+    /(?:^|\n)\s*项目(?:经验|经历)?\s+Projects?\s*(?:Experience)?\s*[:：]?\s*(?:\n|$)/i,
+    // 纯英文：Projects / Project Experience / Key Projects / Selected Projects
+    /(?:^|\n)\s*Projects?\s*(?:Experience)?\s*[:：]?\s*(?:\n|$)/i,
+    /(?:^|\n)\s*(?:Key|Selected|Notable|Major|Main|Personal)\s+Projects?\s*[:：]?\s*(?:\n|$)/i,
+    // 全大写
+    /(?:^|\n)\s*PROJECT\s*(?:EXPERIENCE|S)?\s*[:：]?\s*(?:\n|$)/i,
+    // 带装饰线：— 项目经验 —、═ 项目经验 ═
+    /(?:^|\n)\s*[-—–=═_*~]+\s*项目(?:经验|经历)?\s*[-—–=═_*~]+\s*(?:\n|$)/i,
+    // 主要项目 / 参与项目 / 主导项目 / 负责项目 / 开发项目
+    /(?:^|\n)\s*[【\[（(]?\s*(?:主要|参与|主导|负责|开发|个人|团队|开源)?\s*项目\s*[】\]）)]?\s*[:：]?\s*(?:\n|$)/i,
+  ]
+
+  // 尝试每种标题模式
+  for (const pattern of titlePatterns) {
+    const match = text.match(pattern)
+    if (match && match.index !== undefined) {
+      const startPos = match.index + match[0].length
+
+      // 找下一个章节的起始位置
+      let endPos = text.length
+      for (const kw of nextSectionKeywords) {
+        const kwPattern = new RegExp(`(?:^|\\n)\\s*[【\\[（(]?\\s*${escapeRegExp(kw)}\\s*[】\\]）)]?\\s*[:：]?\\s*(?:\\n|$)`, 'i')
+        const kwMatch = text.substring(startPos).match(kwPattern)
+        if (kwMatch && kwMatch.index !== undefined) {
+          const absPos = startPos + kwMatch.index
+          if (absPos < endPos) endPos = absPos
+        }
+      }
+
+      const section = text.substring(startPos, endPos).trim()
+      if (section.length > 5) return section
+    }
+  }
+
+  return null
+}
+
+/**
+ * 增强项目经验提取（新增函数，不修改原有 parseResumeFromText 逻辑）
+ *
+ * 当原有逻辑提取到的项目数量为 0 时，使用更宽松的章节识别和日期匹配重新提取。
+ * 兼容外部 PDF（Word/WPS/在线简历生成器）的各种格式：
+ * - 多种章节标题格式（带括号、装饰线、双语、全大写等）
+ * - 多种日期格式（月不带前导零、纯年份、英文月份、波浪号等）
+ * - 无日期的项目（按项目名/编号分段）
+ * - 多种项目名格式（书名号、引号、前缀等）
+ */
+function enhanceProjectExtraction(text: string, data: ResumeData): void {
+  // 如果原有逻辑已经提取到项目，不覆盖（只补充遗漏的）
+  // 但如果已经提取到 3 个以上，说明原有逻辑工作正常，不需要增强
+  if (data.projects.length >= 3) return
+
+  // 使用增强版章节提取
+  const projSection = extractProjectSectionEnhanced(text)
+  if (!projSection) return
+
+  const projLines = projSection.split('\n').map(l => l.trim()).filter(Boolean)
+  if (projLines.length === 0) return
+
+  const newProjects: ProjectItem[] = []
+  let currentProj: ProjectItem | null = null
+
+  // 已提取的项目名集合（避免重复）
+  const existingNames = new Set(data.projects.map(p => p.name.toLowerCase().trim()))
+
+  for (const line of projLines) {
+    // 跳过纯分隔线
+    if (/^[-—–=═_*~\s]+$/.test(line)) continue
+
+    // 尝试增强版日期匹配
+    const dateInfo = matchDateRangeEnhanced(line)
+
+    if (dateInfo) {
+      // 找到日期范围，开始新项目
+      if (currentProj && currentProj.name) newProjects.push(currentProj)
+      currentProj = {
+        id: genId(), name: '', role: '', link: '',
+        startDate: dateInfo.start,
+        endDate: dateInfo.end,
+        description: ''
+      }
+      // 日期前面的文本可能是项目名
+      const beforeDate = line.substring(0, dateInfo.matchStart).trim()
+      if (beforeDate && beforeDate.length < 50) {
+        // 清理项目名中可能的前缀符号
+        currentProj.name = beforeDate.replace(/^[•·▪◦\-–—★☆▶►■□◆◇\d.\)\（(]+\s*/, '').trim()
+      }
+    } else if (currentProj) {
+      // 尝试提取项目名
+      if (!currentProj.name) {
+        // 方式1：项目名：XXX / 项目名称：XXX
+        const nameMatch = line.match(/(?:项目名|项目名称|项目|Project\s*Name)\s*[:：]\s*(.+)/i)
+        if (nameMatch) {
+          const name = nameMatch[1].trim().split(/\s{2,}|\t/)[0].slice(0, 60)
+          if (name) {
+            currentProj.name = name
+            continue
+          }
+        }
+
+        // 方式2：书名号《XXX》或引号"XXX"
+        const bookMatch = line.match(/[《【]([^》】]+)[》】]/)
+        if (bookMatch) {
+          currentProj.name = bookMatch[1].trim()
+          // 行中剩余部分可能是描述
+          const rest = line.replace(bookMatch[0], '').trim()
+          if (rest.length > 3) {
+            currentProj.description += (currentProj.description ? '\n' : '') + rest
+          }
+          continue
+        }
+
+        // 方式3：短行不含日期，可能是项目名（更宽松的长度限制）
+        if (line.length <= 50 && !/^\d+$/.test(line)) {
+          // 清理前缀符号
+          const cleanedName = line.replace(/^[•·▪◦\-–—★☆▶►■□◆◇\d.\)\（(]+\s*/, '').trim()
+          if (cleanedName && cleanedName.length >= 2 && cleanedName.length <= 50) {
+            // 排除明显是描述的行（包含句号且较长）
+            if (!/[。；！？]/.test(cleanedName) || cleanedName.length < 20) {
+              currentProj.name = cleanedName
+              continue
+            }
+          }
+        }
+      }
+
+      // 尝试提取角色
+      if (!currentProj.role) {
+        const roleMatch = line.match(/(?:角色|职责|负责|担任|Role|Position|Title)\s*[:：]?\s*(.+)/i)
+        if (roleMatch) {
+          currentProj.role = roleMatch[1].trim().slice(0, 50)
+          continue
+        }
+      }
+
+      // 尝试提取链接
+      if (!currentProj.link) {
+        const linkMatch = line.match(/https?:\/\/[^\s|<>]+/i)
+        if (linkMatch) {
+          currentProj.link = linkMatch[0]
+        }
+      }
+
+      // 其他内容作为描述
+      if (line.length > 3) {
+        currentProj.description += (currentProj.description ? '\n' : '') + line
+      }
+    } else {
+      // currentProj 为 null（没有日期触发的项目开始）
+      // 尝试无日期的项目识别
+
+      // 方式1：项目名：XXX 格式
+      const nameMatch = line.match(/(?:项目名|项目名称)\s*[:：]\s*(.+)/i)
+      if (nameMatch) {
+        if (currentProj && currentProj.name) newProjects.push(currentProj)
+        currentProj = {
+          id: genId(), name: nameMatch[1].trim().slice(0, 60), role: '', link: '',
+          startDate: '', endDate: '', description: ''
+        }
+        continue
+      }
+
+      // 方式2：书名号《XXX》
+      const bookMatch = line.match(/[《【]([^》】]+)[》】]/)
+      if (bookMatch) {
+        if (currentProj && currentProj.name) newProjects.push(currentProj)
+        currentProj = {
+          id: genId(), name: bookMatch[1].trim(), role: '', link: '',
+          startDate: '', endDate: '', description: ''
+        }
+        const rest = line.replace(bookMatch[0], '').trim()
+        if (rest.length > 3) {
+          currentProj.description = rest
+        }
+        continue
+      }
+
+      // 方式3：带编号的项目（1. XXX / (1) XXX / 一、XXX）
+      const numberedMatch = line.match(/^(?:\d+[.、)\s]|[(（]\d+[)）]\s|[一二三四五六七八九十]+[、.]\s)\s*(.+)/)
+      if (numberedMatch) {
+        const projName = numberedMatch[1].trim().slice(0, 60)
+        if (projName.length >= 2) {
+          if (currentProj && currentProj.name) newProjects.push(currentProj)
+          currentProj = {
+            id: genId(), name: projName, role: '', link: '',
+            startDate: '', endDate: '', description: ''
+          }
+          continue
+        }
+      }
+
+      // 方式4：带前缀符号的短行（• XXX / ▪ XXX / ★ XXX）
+      const bulletMatch = line.match(/^[•·▪◦★☆▶►■□◆◇]\s*(.+)/)
+      if (bulletMatch) {
+        const projName = bulletMatch[1].trim().slice(0, 60)
+        if (projName.length >= 2 && projName.length <= 50) {
+          if (currentProj && currentProj.name) newProjects.push(currentProj)
+          currentProj = {
+            id: genId(), name: projName, role: '', link: '',
+            startDate: '', endDate: '', description: ''
+          }
+          continue
+        }
+      }
+    }
+  }
+  // 最后一个项目
+  if (currentProj && currentProj.name) newProjects.push(currentProj)
+
+  // 将新提取的项目合并到 data.projects（去重）
+  for (const proj of newProjects) {
+    const nameKey = proj.name.toLowerCase().trim()
+    if (!existingNames.has(nameKey)) {
+      data.projects.push(proj)
+      existingNames.add(nameKey)
+    }
+  }
 }
 
 /**
