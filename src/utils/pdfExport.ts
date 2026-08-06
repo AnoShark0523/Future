@@ -67,7 +67,14 @@ export async function exportResumeToPDF(
 
   // 测量真实尺寸
   const captureWidth = resumeEl.offsetWidth
-  const captureHeight = resumeEl.scrollHeight
+
+  // 计算 A4 高度对应的像素值（按当前 DPI）
+  // 210mm = captureWidth px，所以 297mm = captureWidth * 297/210
+  const a4HeightPx = Math.round(captureWidth * (A4_HEIGHT_MM / A4_WIDTH_MM))
+
+  // 截图高度固定为 A4 比例高度，确保截图宽高比 = A4 宽高比
+  // 这样放入 PDF 时不会拉伸变形，文字不会偏扁
+  const captureHeight = a4HeightPx
 
   // 4. 使用 html2canvas 截图
   //    onclone 中只做兼容性修复，不注入任何布局 CSS
@@ -87,13 +94,17 @@ export async function exportResumeToPDF(
       el.style.transformOrigin = 'top left'
       el.style.margin = '0'
 
+      // 固定高度为 A4 高度，溢出内容隐藏（单页输出）
+      el.style.height = a4HeightPx + 'px'
+      el.style.overflow = 'hidden'
+
       // 修复 html2canvas 不渲染 flex align-items: stretch 的问题
       // 现象：sidebar 背景只覆盖内容高度，未填满到容器底部
       // 方案：显式设置 sidebar 高度 = 容器高度（不改变宽度、padding 等任何布局属性）
       const layouts = el.querySelectorAll('.layout-sidebar-left, .layout-sidebar-right')
       layouts.forEach((layout) => {
         const layoutEl = layout as HTMLElement
-        const layoutH = layoutEl.offsetHeight
+        const layoutH = a4HeightPx
         const sidebar = layoutEl.querySelector('.sidebar, .sidebar-right') as HTMLElement
         if (sidebar && layoutH > 0) {
           sidebar.style.height = layoutH + 'px'
@@ -116,10 +127,9 @@ export async function exportResumeToPDF(
   const imgData = canvas.toDataURL('image/jpeg', 0.95)
   const pdf = new jsPDF('p', 'mm', 'a4')
 
-  const imgWidthMm = A4_WIDTH_MM
-  // 强制单页：无论内容多高，都缩放到 A4 单页
-  // 宽度填满 A4，高度强制为 A4 高度（整体缩放，不产生第二页）
-  pdf.addImage(imgData, 'JPEG', 0, 0, imgWidthMm, A4_HEIGHT_MM)
+  // 截图宽高比已与 A4 一致（截图前固定了 A4 比例高度），
+  // 直接铺满 A4 页面，不会拉伸变形
+  pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM)
 
   // 6. 准备嵌入的简历数据
   onProgress?.('正在嵌入简历数据...')
