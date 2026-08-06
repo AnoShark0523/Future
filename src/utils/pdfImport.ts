@@ -1466,11 +1466,11 @@ async function extractEmbeddedDataFromAttachment(file: File): Promise<{ data: Re
     if (!bytes || bytes.length === 0) return null
     const jsonStr = new TextDecoder('utf-8').decode(bytes)
     const parsed = parseEmbeddedData(jsonStr)
-    if (parsed.error) {
-      console.warn('[PDF Import] EmbeddedFile resume.json 解析失败:', parsed.error, '前200字预览:', jsonStr.slice(0, 200))
+    if (!parsed) {
+      console.warn('[PDF Import] EmbeddedFile resume.json 解析失败: JSON 无效，前200字预览:', jsonStr.slice(0, 200))
       return null
     }
-    console.info(`[PDF Import] 从 PDF EmbeddedFile 成功恢复 v${parsed.exportVersion || '1'} 数据，姓名=${parsed.data.personal?.name ?? '未知'}`)
+    console.info(`[PDF Import] 从 PDF EmbeddedFile 成功恢复数据，姓名=${parsed.data.personal?.name ?? '未知'}`)
     return parsed
   } catch (err) {
     // EmbeddedFile 读取失败时输出警告，便于排查（不打断fallback链）
@@ -1840,6 +1840,415 @@ async function ocrFromPDFRobust(arrayBuffer: ArrayBuffer, onProgress?: (msg: str
   await worker.terminate()
   try { pdfDoc.destroy() } catch {}
   return allText.join('\n\n')
+}
+
+/**
+ * 从 PDF 文件中提取图片（用于提取证件照等嵌入图片）
+ *
+ * 双重策略：
+ * 策略1（优先）：使用 pdfjs 的 OperatorList 直接提取内嵌图片对象
+ *   - 支持 paintImageXObject / paintImageXObjectRepeat / paintJpegXObject / paintImageMaskXObject
+ *   - 质量最高，直接获取原始像素数据
+ *
+ * 策略2（兜底）：如果策略1找不到图片，渲染整页到 canvas
+ *   - 分析页面右上角、左上角、右上1/4区域，找到最可能是照片的区域
+ *   - 通过颜色方差判断：照片区域颜色丰富（方差大），空白区域颜色单一
+ *   - 适合 Word/WPS 导出的 PDF（照片被嵌入为整页渲染的一部分）
+ *
+ * @param file PDF 文件
+ * @param onProgress 进度回调
+ * @returns base64 格式的图片数据（不含 data: 前缀），如果没有图片则返回空字符串
+ */
+export async function extractImageFromPDF(
+  file: File,
+  onProgress?: (msg: string) => void
+): Promise<string> {
+  const pdfjs = await loadPdfjs()
+  const arrayBuffer = await file.arrayBuffer()
+
+  const loadingTask = pdfjs.getDocument({
+    data: arrayBuffer,
+    cMapUrl: '/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: '/standard_fonts/',
+    disableAutoFetch: true,
+    disableStream: true,
+  })
+
+  const pdfDoc = await loadingTask.promise
+  const candidates: { base64: string; width: number; height: number; pageNum: number; score: number }[] = []
+
+  const maxPages = Math.min(pdfDoc.numPages, 2) // 只扫描前 2 页
+
+  // ========== 策略1：OperatorList 直接提取内嵌图片 ==========
+  for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+    onProgress?.(`正在扫描第 ${pageNum} 页的图片...`)
+    const page = await pdfDoc.getPage(pageNum)
+
+    try {
+      const operatorList = await page.getOperatorList()
+      const OPS = pdfjs.OPS
+
+      // 支持所有图片绘制操作类型
+      const imageOpTypes = [
+        OPS.paintImageXObject,
+        OPS.paintImageXObjectRepeat,
+        OPS.paintJpegXObject,
+        OPS.paintImageMaskXObject,
+        OPS.paintImageMaskXObjectRepeat,
+      ].filter(v => v !== undefined)
+
+      const imageOps: { name: string; transform: number[] }[] = []
+      for (let i = 0; i < operatorList.fnArray.length; i++) {
+        if (imageOpTypes.includes(operatorList.fnArray[i])) {
+          const args = operatorList.argsArray[i]
+          if (args && args[0]) {
+            imageOps.push({ name: args[0] as string, transform: args[3] as number[] || [] })
+          }
+        }
+      }
+
+      console.info(`[PDF Image] 第${pageNum}页找到 ${imageOps.length} 个图片操作符`)
+
+      // 获取每张图片的实际数据
+      for (const { name } of imageOps) {
+        try {
+          const imgData = await new Promise<any>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('图片加载超时')), 5000)
+            page.objs.get(name, (obj: any) => {
+              clearTimeout(timeout)
+              resolve(obj)
+            })
+          })
+
+          if (!imgData || !imgData.data || !imgData.width || !imgData.height) continue
+
+          const w = imgData.width
+          const h = imgData.height
+
+          // 过滤掉太小的图片（图标、装饰元素）和太大的图片（背景图）
+          if (w < 50 || h < 50) continue
+          if (w > 2000 || h > 2000) continue
+
+          // 计算宽高比，证件照通常接近正方形或略宽
+          const aspectRatio = w / h
+          const isNearSquare = aspectRatio > 0.6 && aspectRatio < 1.8
+
+          // 计算分数
+          let score = 0
+          if (isNearSquare) score += 30
+          if (w >= 100 && w <= 600 && h >= 100 && h <= 600) score += 20
+          if (pageNum === 1) score += 15
+          score += Math.min(20, 200 / Math.max(w, h) * 10)
+
+          // 将图片数据转为 base64
+          const base64 = imageToBase64(imgData, w, h)
+          if (base64) {
+            candidates.push({ base64, width: w, height: h, pageNum, score })
+            console.info(`[PDF Image] 策略1找到图片: ${w}x${h}, 页码=${pageNum}, 分数=${score}`)
+          }
+        } catch (imgErr) {
+          console.warn(`[PDF Image] 提取图片 ${name} 失败:`, imgErr)
+        }
+      }
+    } catch (pageErr) {
+      console.warn(`[PDF Image] 扫描第 ${pageNum} 页失败:`, pageErr)
+    }
+
+    if (pageNum === 1 && candidates.some(c => c.score >= 50)) {
+      break
+    }
+  }
+
+  // ========== 策略2：渲染整页截图，智能裁剪照片区域 ==========
+  if (candidates.length === 0) {
+    onProgress?.('内嵌图片未找到，尝试渲染截图识别照片...')
+
+    for (let pageNum = 1; pageNum <= Math.min(pdfDoc.numPages, 1); pageNum++) {
+      try {
+        const page = await pdfDoc.getPage(pageNum)
+        const viewport = page.getViewport({ scale: 2 })
+
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')!
+        canvas.width = viewport.width
+        canvas.height = viewport.height
+
+        ctx.fillStyle = 'white'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        await page.render({
+          canvasContext: ctx,
+          viewport: viewport,
+        }).promise
+
+        onProgress?.('正在分析页面布局识别照片区域...')
+
+        // 尝试从多个区域检测照片
+        const detected = detectPhotoRegion(canvas, ctx)
+        for (const det of detected) {
+          candidates.push({
+            base64: det.base64,
+            width: det.width,
+            height: det.height,
+            pageNum,
+            score: det.score,
+          })
+          console.info(`[PDF Image] 策略2裁剪到照片区域: ${det.width}x${det.height}, 分数=${det.score}, 位置=${det.label}`)
+        }
+      } catch (renderErr) {
+        console.warn(`[PDF Image] 策略2渲染第 ${pageNum} 页失败:`, renderErr)
+      }
+    }
+  }
+
+  try { pdfDoc.destroy() } catch {}
+
+  if (candidates.length === 0) {
+    onProgress?.('未找到 PDF 中的图片')
+    return ''
+  }
+
+  // 按分数排序，取最高分
+  candidates.sort((a, b) => b.score - a.score)
+  const best = candidates[0]
+  onProgress?.(`已提取图片: ${best.width}x${best.height}`)
+  console.info(`[PDF Image] 最佳候选: ${best.width}x${best.height}, 分数=${best.score}, 页码=${best.pageNum}`)
+
+  // base64 已经是完整 data URL 或纯 base64，统一确保返回完整 data URL
+  if (best.base64.startsWith('data:')) {
+    return best.base64
+  }
+  return `data:image/jpeg;base64,${best.base64}`
+}
+
+/**
+ * 自动检测并裁剪图片周围的空白边距
+ *
+ * PDF 中提取的图片可能包含大面积白边/背景色，导致照片内容偏移。
+ * 本函数扫描像素，找到实际内容的边界框，裁掉周围空白，使照片居中。
+ *
+ * @param canvas 原始画布
+ * @param ctx 画布上下文
+ * @param threshold 白色判定阈值（0-255，默认 240，越大越严格）
+ * @returns 裁剪后的坐标 { x, y, w, h }，如果全是空白则返回原始尺寸
+ */
+function trimWhitespace(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  threshold = 240
+): { x: number; y: number; w: number; h: number } {
+  const W = canvas.width
+  const H = canvas.height
+  const imageData = ctx.getImageData(0, 0, W, H)
+  const data = imageData.data
+
+  let minX = W, minY = H, maxX = 0, maxY = 0
+  let foundContent = false
+
+  // 扫描每一行每一列，找到非白色像素的边界
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const idx = (y * W + x) * 4
+      const r = data[idx]
+      const g = data[idx + 1]
+      const b = data[idx + 2]
+      // 非白色判定：任意通道低于阈值
+      if (r < threshold || g < threshold || b < threshold) {
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+        foundContent = true
+      }
+    }
+  }
+
+  if (!foundContent) {
+    return { x: 0, y: 0, w: W, h: H }
+  }
+
+  // 加 2px 边距避免裁太紧
+  const padding = 2
+  minX = Math.max(0, minX - padding)
+  minY = Math.max(0, minY - padding)
+  maxX = Math.min(W - 1, maxX + padding)
+  maxY = Math.min(H - 1, maxY + padding)
+
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
+}
+
+/**
+ * 将 pdfjs 图片对象转为 data URL
+ *
+ * 原样返回提取到的图片，不做任何裁剪或缩放。
+ * 与手动上传照片行为完全一致，由 CSS object-fit: cover 处理显示。
+ */
+function imageToBase64(imgData: any, w: number, h: number): string | null {
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')!
+    const imageData = ctx.createImageData(w, h)
+
+    if (imgData.data.length === w * h * 4) {
+      // RGBA
+      imageData.data.set(imgData.data)
+    } else if (imgData.data.length === w * h * 3) {
+      // RGB → RGBA
+      const src = imgData.data
+      const dst = imageData.data
+      for (let i = 0, j = 0; i < src.length; i += 3, j += 4) {
+        dst[j] = src[i]
+        dst[j + 1] = src[i + 1]
+        dst[j + 2] = src[i + 2]
+        dst[j + 3] = 255
+      }
+    } else {
+      return null
+    }
+
+    ctx.putImageData(imageData, 0, 0)
+
+    // 原样返回完整 data URL，不做任何裁剪
+    return canvas.toDataURL('image/jpeg', 0.92)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 智能检测 canvas 中的照片区域
+ *
+ * 简历中的照片通常出现在：
+ * 1. 右上角（最常见）
+ * 2. 左上角
+ * 3. 左侧栏顶部
+ *
+ * 通过分析颜色方差来区分照片区域和空白区域：
+ * - 照片区域：颜色丰富，方差大，有皮肤色调
+ * - 空白区域：颜色单一，方差小
+ */
+function detectPhotoRegion(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D
+): { base64: string; width: number; height: number; score: number; label: string }[] {
+  const results: { base64: string; width: number; height: number; score: number; label: string }[] = []
+  const W = canvas.width
+  const H = canvas.height
+
+  // 定义候选区域（以页面比例为准）
+  // 照片比例统一为 3:4（标准证件照），区域宽高比约为 0.75
+  const regions = [
+    // 右上角
+    { x: 0.75, y: 0.03, w: 0.20, h: 0.27, label: '右上角' },
+    // 左上角
+    { x: 0.03, y: 0.03, w: 0.20, h: 0.27, label: '左上角' },
+    // 左侧栏顶部
+    { x: 0.03, y: 0.08, w: 0.22, h: 0.30, label: '左侧栏' },
+    // 顶部居中
+    { x: 0.38, y: 0.03, w: 0.24, h: 0.32, label: '顶部居中' },
+  ]
+
+  for (const region of regions) {
+    const x = Math.round(W * region.x)
+    const y = Math.round(H * region.y)
+    const w = Math.round(W * region.w)
+    const h = Math.round(H * region.h)
+
+    if (x + w > W || y + h > H) continue
+
+    // 获取区域像素数据
+    const imageData = ctx.getImageData(x, y, w, h)
+    const data = imageData.data
+
+    // 计算颜色方差和皮肤色比例
+    let rSum = 0, gSum = 0, bSum = 0
+    let rSqSum = 0, gSqSum = 0, bSqSum = 0
+    let skinPixels = 0
+    let nonWhitePixels = 0
+    const totalPixels = w * h
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+
+      rSum += r
+      gSum += g
+      bSum += b
+      rSqSum += r * r
+      gSqSum += g * g
+      bSqSum += b * b
+
+      // 判断是否非白色
+      if (r < 240 || g < 240 || b < 240) {
+        nonWhitePixels++
+      }
+
+      // 皮肤色检测（简单 YCbCr 判断）
+      // 皮肤色条件：R > G > B, R-B > 15, R > 95, G > 40, B > 20
+      if (r > 95 && g > 40 && b > 20 && r > g && g > b && r - b > 15) {
+        skinPixels++
+      }
+    }
+
+    const rVar = rSqSum / totalPixels - (rSum / totalPixels) ** 2
+    const gVar = gSqSum / totalPixels - (gSum / totalPixels) ** 2
+    const bVar = bSqSum / totalPixels - (bSum / totalPixels) ** 2
+    const totalVar = rVar + gVar + bVar
+
+    const nonWhiteRatio = nonWhitePixels / totalPixels
+    const skinRatio = skinPixels / totalPixels
+
+    console.info(`[PDF Image] 区域 ${region.label}: 方差=${Math.round(totalVar)}, 非白比例=${(nonWhiteRatio * 100).toFixed(1)}%, 皮肤比例=${(skinRatio * 100).toFixed(1)}%`)
+
+    // 评分标准：
+    // - 方差 > 500（颜色丰富，可能是照片）
+    // - 非白比例 > 30%（有实质内容）
+    // - 皮肤比例 > 5%（含人脸特征）
+    let score = 0
+    if (totalVar > 500) score += 25
+    if (totalVar > 2000) score += 15
+    if (nonWhiteRatio > 0.3) score += 20
+    if (nonWhiteRatio > 0.6) score += 10
+    if (skinRatio > 0.05) score += 30
+    if (skinRatio > 0.15) score += 10
+
+    // 如果评分太低，跳过
+    if (score < 30) continue
+
+    // 裁剪这个区域，原样返回，不做比例规范化
+    const cropCanvas = document.createElement('canvas')
+    cropCanvas.width = w
+    cropCanvas.height = h
+    const cropCtx = cropCanvas.getContext('2d')!
+    cropCtx.drawImage(canvas, x, y, w, h, 0, 0, w, h)
+
+    // 裁掉空白边距，让照片内容居中
+    const trimmed = trimWhitespace(cropCanvas, cropCtx)
+
+    // 基于裁剪后的区域创建最终图片
+    const finalCanvas = document.createElement('canvas')
+    finalCanvas.width = trimmed.w
+    finalCanvas.height = trimmed.h
+    const finalCtx = finalCanvas.getContext('2d')!
+    finalCtx.drawImage(cropCanvas, trimmed.x, trimmed.y, trimmed.w, trimmed.h, 0, 0, trimmed.w, trimmed.h)
+
+    const base64 = finalCanvas.toDataURL('image/jpeg', 0.92)
+    if (base64 && base64.length > 100) {
+      results.push({
+        base64,
+        width: trimmed.w,
+        height: trimmed.h,
+        score,
+        label: region.label,
+      })
+    }
+  }
+
+  return results
 }
 
 /**

@@ -145,7 +145,8 @@ export async function exportResumeToPDF(
   pdf.setTextColor(255, 255, 255)
   pdf.setFontSize(1)
   const textLayerContent = `${RESUME_DATA_START}${encodeURIComponent(JSON.stringify(exportPayload))}${RESUME_DATA_END}`
-  const chunkSize = 200
+  // 增大 chunkSize 减少循环次数，避免大量 pdf.text() 调用导致性能问题
+  const chunkSize = 2000
   for (let i = 0; i < textLayerContent.length; i += chunkSize) {
     const chunk = textLayerContent.slice(i, i + chunkSize)
     pdf.text(chunk, 0, 1, {
@@ -187,42 +188,33 @@ export async function exportResumeToPDF(
  * @param clone 克隆的 DOM 元素（将被 html2canvas 渲染）
  */
 function fixCssForCanvas(original: HTMLElement, clone: HTMLElement): void {
-  const origElements: HTMLElement[] = [original]
-  const cloneElements: HTMLElement[] = [clone]
-
   const origChildren = Array.from(original.querySelectorAll('*')) as HTMLElement[]
   const cloneChildren = Array.from(clone.querySelectorAll('*')) as HTMLElement[]
 
-  origElements.push(...origChildren)
-  cloneElements.push(...cloneChildren)
+  // 只处理颜色相关属性，减少 getComputedStyle 调用次数
+  // html2canvas 主要不支持 CSS 变量和 gradient，只处理这些即可
+  const propsToCheck = [
+    'color',
+    'background-color',
+    'background-image',
+    'border-top-color',
+    'border-right-color',
+    'border-bottom-color',
+    'border-left-color',
+  ]
 
-  for (let i = 0; i < origElements.length && i < cloneElements.length; i++) {
-    const origEl = origElements[i]
-    const cloneEl = cloneElements[i]
+  for (let i = 0; i < origChildren.length && i < cloneChildren.length; i++) {
+    const origEl = origChildren[i]
+    const cloneEl = cloneChildren[i]
 
     try {
       const computed = window.getComputedStyle(origEl)
 
-      // 解析颜色相关属性（这些最常使用 CSS 变量）
-      const colorProps = [
-        'color',
-        'background-color',
-        'background-image',
-        'border-top-color',
-        'border-right-color',
-        'border-bottom-color',
-        'border-left-color',
-        'box-shadow',
-        'fill',
-        'stroke',
-        'outline-color',
-      ]
-
-      colorProps.forEach((prop) => {
+      for (const prop of propsToCheck) {
         const val = computed.getPropertyValue(prop)
-        if (!val || val === '' || val === 'none') return
+        if (!val || val === '' || val === 'none') continue
 
-        // 处理所有 gradient 类型（html2canvas 对 gradient 支持不完善）
+        // gradient 降级为纯色
         if (prop === 'background-image' && val.includes('gradient')) {
           const colorMatch = val.match(/(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/)
           if (colorMatch) {
@@ -234,37 +226,18 @@ function fixCssForCanvas(original: HTMLElement, clone: HTMLElement): void {
           } else {
             cloneEl.style.setProperty('background-image', 'none', 'important')
           }
-          return
+          continue
         }
 
-        // 直接应用解析后的值（CSS 变量已被浏览器解析为实际值）
+        // 只在值包含 var() 时才需要覆盖（其他情况 html2canvas 能自己解析）
         cloneEl.style.setProperty(prop, val, 'important')
-      })
-
-      // 解析边框宽度和样式
-      const borderProps = [
-        'border-top-width',
-        'border-right-width',
-        'border-bottom-width',
-        'border-left-width',
-        'border-top-style',
-        'border-right-style',
-        'border-bottom-style',
-        'border-left-style',
-      ]
-
-      borderProps.forEach((prop) => {
-        const val = computed.getPropertyValue(prop)
-        if (val && val !== '' && val !== 'none' && val !== '0px') {
-          cloneEl.style.setProperty(prop, val, 'important')
-        }
-      })
+      }
 
       // 移除 clip-path（html2canvas 不支持）
       cloneEl.style.setProperty('clip-path', 'none', 'important')
       cloneEl.style.setProperty('-webkit-clip-path', 'none', 'important')
     } catch {
-      // 某些元素可能无法获取计算样式，跳过
+      // 跳过无法获取样式的元素
     }
   }
 }

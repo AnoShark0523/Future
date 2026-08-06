@@ -4371,4 +4371,84 @@ const skillTags = computed(() => {
     page-break-inside: avoid;
   }
 }
+
+/* ==================== AI 深度增强 CSS（新增，不修改已有规则） ==================== */
+
+/* 纸张顶部色带 - 增加视觉层次感 */
+.resume-paper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* 内容条目微阴影 - 增加浮起感 */
+.entry-row {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+}
+
+/* 技能进度条内阴影 - 立体感 */
+.skill-bar-track {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 技能条高光效果 - 3D质感 */
+.skill-bar-fill {
+  position: relative;
+}
+.skill-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.25), transparent 50%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* 照片容器增强阴影 */
+.photo-wrap {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* 深色主题增强 */
+.dark-theme .entry-row {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+.dark-theme .skill-bar-track {
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.05);
+}
+.dark-theme .photo-wrap {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* 侧边栏内阴影 - 增加深度 */
+.sidebar {
+  box-shadow: inset -3px 0 8px rgba(0, 0, 0, 0.06);
+}
+.sidebar-right .sidebar {
+  box-shadow: inset 3px 0 8px rgba(0, 0, 0, 0.06);
+}
+
+/* 打印/PDF优化 - 阴影转为细边框，避免html2canvas渲染问题 */
+@media print {
+  .resume-paper::after {
+    height: 3px;
+  }
+  .entry-row {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06) !important;
+  }
+  .sidebar {
+    box-shadow: none !important;
+  }
+}
 </style>

@@ -15,7 +15,7 @@ import {
   exportMarkdown,
   genId
 } from '@/utils/resumeTemplates'
-import { importResumeFromPDF, ocrFromPDF, parseResumeFromText } from '@/utils/pdfImport'
+import { importResumeFromPDF, ocrFromPDF, parseResumeFromText, extractTextFromPDF } from '@/utils/pdfImport'
 import { exportResumeToPDF } from '@/utils/pdfExport'
 import {
   resumeTemplateStyles,
@@ -24,6 +24,9 @@ import {
   type ResumeTemplateStyle
 } from '@/utils/resumeTemplateStyles'
 import ResumePreview from '@/components/ResumePreview.vue'
+import AISettingsPanel from '@/components/AISettingsPanel.vue'
+import { parseResumeWithAI, parseResumeWithAIRobust, hasApiKey } from '@/utils/aiImport'
+import { optimizeResumeWithAI, canAIExport } from '@/utils/aiExport'
 import {
   User,
   Briefcase,
@@ -49,7 +52,11 @@ import {
   ChevronDown,
   ChevronRight,
   Palette,
-  ScanLine
+  ScanLine,
+  Cpu,
+  Settings,
+  Sparkle,
+  Info
 } from 'lucide-vue-next'
 
 const { notification, success, error } = useNotification()
@@ -95,7 +102,19 @@ const ocrInProgress = ref(false)
 // PDF 导出状态
 const exportingPDF = ref(false)
 const exportProgress = ref('')
+const exportPercent = ref(0)
 const lastExportedBlob = ref<Blob | null>(null)
+
+// ---- 新增：AI 导入状态 ----
+const showAISettings = ref(false)
+const aiImporting = ref(false)
+const aiImportProgress = ref('')
+const aiImportEnabled = ref(hasApiKey())
+const aiExporting = ref(false)
+const aiExportProgress = ref('')
+const aiExportStep = ref(0)
+const aiExportPercent = ref(0)
+const aiExportEnabled = ref(canAIExport())
 
 // ==================== 计算属性 ====================
 
@@ -493,24 +512,257 @@ const handleOCRImport = async () => {
   }
 }
 
+// ---- 新增：AI 智能导入 PDF ----
+// 先用现有逻辑提取 PDF 文本，再调用 AI 大模型解析为结构化 JSON
+// 不影响原有导入流程，作为独立的导入按钮使用
+const handleAIImportPDF = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  // 检查是否已配置 API Key
+  if (!hasApiKey()) {
+    error('请先点击"AI设置"按钮，配置硅基流动 API Key')
+    input.value = ''
+    return
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    error('PDF 文件大小不能超过 10MB')
+    input.value = ''
+    return
+  }
+
+  aiImporting.value = true
+  aiImportProgress.value = '正在提取 PDF 文本...'
+
+  try {
+    // Step 1: 提取 PDF 文本（复用现有逻辑）
+    let text = ''
+    try {
+      text = await extractTextFromPDF(file)
+    } catch {
+      // 标准提取失败，尝试 OCR
+      aiImportProgress.value = 'PDF 无文本层，正在启动 OCR...'
+      const arrayBuffer = await file.arrayBuffer()
+      text = await ocrFromPDF(arrayBuffer, (msg) => {
+        aiImportProgress.value = msg
+      })
+    }
+
+    if (!text || text.trim().length < 10) {
+      error('PDF 无法提取文本内容，请确认文件有效')
+      return
+    }
+
+    // Step 2: 调用 AI 解析（使用增强版，带重试和容错）
+    aiImportProgress.value = '正在调用 AI 大模型解析简历...'
+    const data = await parseResumeWithAIRobust(text, (msg) => {
+      aiImportProgress.value = msg
+    })
+
+    // Step 3: 应用解析结果
+    resumeData.value = data
+
+    // 统计提取到的字段数
+    let filledCount = 0
+    if (data.personal.name) filledCount++
+    if (data.personal.phone) filledCount++
+    if (data.personal.email) filledCount++
+    if (data.personal.title) filledCount++
+    if (data.personal.photo) filledCount++
+    if (data.education.length) filledCount++
+    if (data.experience.length) filledCount++
+    if (data.projects.length) filledCount++
+    if (data.skills.length) filledCount++
+
+    const hasPhoto = data.personal.photo ? '（含照片）' : ''
+    success(`AI 智能导入成功${hasPhoto}！已提取 ${filledCount} 项信息（姓名、工作、项目、技能等全部识别）`)
+  } catch (err) {
+    console.error('AI 导入失败:', err)
+    const msg = err instanceof Error ? err.message : '未知错误'
+    error(`AI 导入失败：${msg}`)
+  } finally {
+    aiImporting.value = false
+    aiImportProgress.value = ''
+    input.value = ''
+  }
+}
+
+// ---- 新增：打开 AI 设置面板 ----
+const openAISettings = () => {
+  showAISettings.value = true
+}
+
+// ---- 新增：关闭 AI 设置面板时刷新状态 ----
+const handleCloseAISettings = () => {
+  showAISettings.value = false
+  aiImportEnabled.value = hasApiKey()
+  aiExportEnabled.value = canAIExport()
+}
+
+// ---- 新增：AI 智能导出 PDF ----
+// 流程：AI 优化内容 → 现有 html2canvas+jsPDF 生成 PDF → 嵌入数据
+const handleAIExportPDF = async () => {
+  if (!hasContent.value) return
+
+  if (!hasApiKey()) {
+    error('请先点击"AI设置"按钮，配置硅基流动 API Key')
+    return
+  }
+
+  aiExporting.value = true
+  aiExportStep.value = 0
+  aiExportPercent.value = 0
+  const t0 = Date.now()
+
+  // 步骤定义：[步骤号, 起始百分比, 结束百分比, 步骤名]
+  // Step 1: AI API 调用（0-55%，最慢）
+  // Step 2: 应用优化结果（55-60%）
+  // Step 3: 截图渲染 html2canvas（60-80%）
+  // Step 4: 生成 PDF + 嵌入数据（80-95%）
+  // Step 5: 保存文件（95-100%）
+  const STEP_RANGES: Record<number, [number, number]> = {
+    1: [0, 55],
+    2: [55, 60],
+    3: [60, 80],
+    4: [80, 95],
+    5: [95, 100],
+  }
+  const STEP_NAMES: Record<number, string> = {
+    1: 'AI优化',
+    2: '应用结果',
+    3: '截图渲染',
+    4: '生成PDF',
+    5: '保存',
+  }
+
+  const log = (step: number, msg: string) => {
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+    aiExportStep.value = step
+    const range = STEP_RANGES[step] || [0, 100]
+    aiExportPercent.value = range[1]
+    aiExportProgress.value = `[${elapsed}s] ${msg}`
+    console.info(`[AI Export ${elapsed}s] Step ${step}/${STEP_NAMES[step]} (${range[1]}%): ${msg}`)
+  }
+
+  let tickTimer: ReturnType<typeof setInterval> | null = null
+
+  try {
+    // Step 1: AI 优化简历内容（最慢，主要瓶颈）
+    // 启动计时器，每秒更新耗时显示，让用户知道正在工作
+    let lastMsg = 'AI 正在优化文案内容（调用大模型，请耐心等待）...'
+    tickTimer = setInterval(() => {
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      aiExportProgress.value = `[${elapsed}s] ${lastMsg}`
+    }, 1000)
+
+    log(1, lastMsg)
+    const result = await optimizeResumeWithAI(resumeData.value, {
+      polishContent: true,
+      onProgress: (msg) => {
+        lastMsg = msg
+        log(1, msg)
+      }
+    })
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null }
+
+    // Step 2: 临时应用优化后的数据到预览
+    log(2, '正在应用 AI 优化结果...')
+    resumeData.value = result.optimizedData
+
+    // 等待 Vue 响应式更新完成
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    // Step 3 & 4: 使用现有导出管线生成 PDF
+    log(3, '正在截图渲染（html2canvas）...')
+    const blob = await exportResumeToPDF(
+      result.optimizedData,
+      `${resumeData.value.personal.name || '简历'}_AI优化.pdf`,
+      (msg: string) => {
+        // 根据导出管线的进度消息映射到步骤
+        if (msg.includes('截图') || msg.includes('渲染') || msg.includes('定位') || msg.includes('加载图片')) {
+          log(3, msg)
+        } else if (msg.includes('PDF') || msg.includes('嵌入') || msg.includes('文本')) {
+          log(4, msg)
+        } else {
+          log(3, msg)
+        }
+      },
+      selectedTemplate.value
+    )
+
+    // Step 5: 触发下载
+    log(5, '正在保存文件...')
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${resumeData.value.personal.name || '简历'}_AI优化.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    aiExportPercent.value = 100
+    const totalTime = ((Date.now() - t0) / 1000).toFixed(1)
+    let msg = `AI 智能导出成功！耗时 ${totalTime}s`
+    if (result.suggestions.length > 0) {
+      msg += `，优化了 ${result.suggestions.length} 项内容`
+    }
+    success(msg)
+  } catch (err) {
+    console.error('AI 导出失败:', err)
+    const msg = err instanceof Error ? err.message : '未知错误'
+    error(`AI 导出失败：${msg}`)
+  } finally {
+    if (tickTimer) clearInterval(tickTimer)
+    aiExporting.value = false
+    aiExportProgress.value = ''
+    aiExportStep.value = 0
+    aiExportPercent.value = 0
+  }
+}
+
 // 导出 PDF（html2canvas + jsPDF，生成真实 PDF 文件，中文不乱码，嵌入数据可导入恢复）
 const handleExportPDF = async () => {
   if (!hasContent.value) return
 
   exportingPDF.value = true
-  exportProgress.value = '正在准备导出...'
+  exportPercent.value = 0
+  const t0 = Date.now()
+  const log = (step: string) => {
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+    exportProgress.value = `[${elapsed}s] ${step}`
+    // 根据进度消息映射百分比
+    const msgPct: Record<string, number> = {
+      '正在定位简历模板': 5,
+      '正在加载图片资源': 10,
+      '正在渲染简历': 15,
+      '正在生成 PDF 文件': 65,
+      '正在嵌入简历数据': 75,
+      '正在写入文本层': 85,
+      '正在嵌入简历数据（EmbeddedFile）': 90,
+      '正在保存文件': 95,
+    }
+    let pct = 0
+    for (const [key, val] of Object.entries(msgPct)) {
+      if (step.includes(key)) { pct = val; break }
+    }
+    if (pct > 0) exportPercent.value = pct
+    console.info(`[PDF Export ${elapsed}s] (${pct}%): ${step}`)
+  }
 
   try {
+    log('正在准备导出...')
     const blob = await exportResumeToPDF(
       resumeData.value,
       `${resumeData.value.personal.name || '简历'}.pdf`,
-      (msg: string) => {
-        exportProgress.value = msg
-      },
+      (msg: string) => log(msg),
       selectedTemplate.value
     )
 
     // 触发浏览器下载
+    log('正在保存文件...')
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -520,7 +772,9 @@ const handleExportPDF = async () => {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    success('PDF 导出成功！文件已开始下载，且可被本项目导入恢复全部数据')
+    exportPercent.value = 100
+    const totalTime = ((Date.now() - t0) / 1000).toFixed(1)
+    success(`PDF 导出成功！耗时 ${totalTime}s，文件可被本项目导入恢复全部数据`)
   } catch (err) {
     console.error('PDF 导出失败:', err)
     const msg = err instanceof Error ? err.message : '未知错误'
@@ -528,6 +782,7 @@ const handleExportPDF = async () => {
   } finally {
     exportingPDF.value = false
     exportProgress.value = ''
+    exportPercent.value = 0
   }
 }
 
@@ -803,6 +1058,42 @@ onMounted(() => {
           <input type="file" accept=".pdf" @change="importPDFFile" class="hidden" :disabled="importingPDF" />
         </label>
 
+        <!-- ---- 新增：AI 智能导入 PDF ---- -->
+        <label
+          class="px-4 py-2 rounded-lg bg-purple-600/20 hover:bg-purple-600/35 text-purple-300 border border-purple-500/40 transition-colors flex items-center gap-2 text-sm cursor-pointer disabled:opacity-40"
+          :class="{ 'pointer-events-none opacity-50': aiImporting }"
+          :title="aiImportEnabled ? 'AI 智能导入（带重试容错），任何来源的 PDF 都能准确识别所有字段' : '请先点击右侧 AI设置 配置 API Key'"
+        >
+          <Cpu v-if="!aiImporting" class="w-4 h-4" />
+          <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          {{ aiImporting ? (aiImportProgress || 'AI解析中...') : 'AI导入PDF' }}
+          <input type="file" accept=".pdf" @change="handleAIImportPDF" class="hidden" :disabled="aiImporting" />
+        </label>
+
+        <!-- PDF 导入照片提醒 -->
+        <span class="text-xs text-amber-400/80 flex items-center gap-1 ml-1" title="PDF 格式限制，照片需手动上传">
+          <Info class="w-3.5 h-3.5" />
+          导入PDF不会自动填充照片，请手动上传
+        </span>
+
+        <!-- ---- 新增：AI 设置按钮 ---- -->
+        <button
+          @click="openAISettings"
+          class="px-3 py-2 rounded-lg transition-colors flex items-center gap-1.5 text-sm border"
+          :class="aiImportEnabled
+            ? 'bg-green-600/15 hover:bg-green-600/25 text-green-300 border-green-500/30'
+            : 'bg-amber-600/15 hover:bg-amber-600/25 text-amber-300 border-amber-500/30 animate-pulse'"
+          :title="aiImportEnabled ? 'AI 导入已配置，点击修改设置' : '点击配置 AI 导入（需要硅基流动 API Key）'"
+        >
+          <Settings class="w-4 h-4" />
+          AI设置
+          <span v-if="aiImportEnabled" class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+          <span v-else class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+        </button>
+
         <!-- 扫描件 OCR（仅当普通导入失败时显示） -->
         <button
           v-if="showOCRButton && !ocrInProgress"
@@ -826,12 +1117,24 @@ onMounted(() => {
         <button
           @click="handleExportPDF"
           :disabled="!hasContent || exportingPDF"
-          class="gradient-btn !py-2 !px-4 disabled:opacity-40 flex items-center gap-2 text-sm"
+          class="gradient-btn !py-2 !px-4 disabled:opacity-40 flex items-center gap-2 text-sm whitespace-nowrap"
           title="生成真实 PDF 文件并下载，排版与预览一致，且可被本项目导入恢复全部数据"
         >
-          <Download v-if="!exportingPDF" class="w-4 h-4" />
-          <span v-else class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block"></span>
-          {{ exportingPDF ? (exportProgress || '导出中...') : '导出PDF' }}
+          <Download v-if="!exportingPDF" class="w-4 h-4 flex-shrink-0" />
+          <span v-else class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block flex-shrink-0"></span>
+          {{ exportingPDF ? '导出中...' : '导出PDF' }}
+        </button>
+
+        <!-- AI 智能导出 PDF（AI优化内容 + 现有导出管线） -->
+        <button
+          @click="handleAIExportPDF"
+          :disabled="!hasContent || aiExporting"
+          class="gradient-btn !py-2 !px-4 disabled:opacity-40 flex items-center gap-2 text-sm whitespace-nowrap !from-purple-600 !to-indigo-600"
+          :title="aiExportEnabled ? 'AI 自动优化文案后导出 PDF，内容更专业、排版更好' : '请先配置 AI 设置'"
+        >
+          <Sparkles v-if="!aiExporting" class="w-4 h-4 flex-shrink-0" />
+          <span v-else class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block flex-shrink-0"></span>
+          {{ aiExporting ? 'AI优化中...' : 'AI智能导出' }}
         </button>
 
         <!-- 打印预览（浏览器打印，视觉保真） -->
@@ -844,6 +1147,72 @@ onMounted(() => {
           <Printer class="w-4 h-4" />
           打印预览
         </button>
+      </div>
+    </div>
+
+    <!-- AI 智能导出进度条 -->
+    <div
+      v-if="aiExporting"
+      class="mb-3 rounded-xl overflow-hidden border border-purple-500/30 bg-purple-950/20"
+    >
+      <div class="px-4 py-3">
+        <!-- 进度文本行 -->
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-purple-200 flex items-center gap-2 min-w-0">
+            <span class="w-3.5 h-3.5 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin inline-block flex-shrink-0"></span>
+            <span class="truncate">{{ aiExportProgress || 'AI优化中...' }}</span>
+          </span>
+          <span class="text-sm text-purple-300 font-mono font-bold flex-shrink-0 ml-2">{{ aiExportPercent }}%</span>
+        </div>
+        <!-- 进度条主体 -->
+        <div class="h-2.5 rounded-full bg-purple-900/40 overflow-hidden">
+          <div
+            class="h-full rounded-full bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 transition-all duration-500 ease-out relative overflow-hidden"
+            :style="{ width: aiExportPercent + '%' }"
+          >
+            <!-- 流光动画 -->
+            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+          </div>
+        </div>
+        <!-- 步骤指示器 -->
+        <div class="flex justify-between mt-2.5 text-[10px]">
+          <div
+            v-for="(name, idx) in ['AI优化', '应用结果', '截图渲染', '生成PDF', '保存']"
+            :key="idx"
+            class="flex flex-col items-center gap-0.5 flex-1"
+          >
+            <div
+              class="w-2 h-2 rounded-full transition-colors duration-300"
+              :class="aiExportStep > idx ? 'bg-purple-400' : (aiExportStep === idx + 1 ? 'bg-purple-400 animate-ping' : 'bg-purple-900/50')"
+            ></div>
+            <span
+              class="transition-colors duration-300"
+              :class="aiExportStep >= idx + 1 ? 'text-purple-300 font-medium' : 'text-purple-700'"
+            >{{ name }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 普通导出进度条 -->
+    <div
+      v-if="exportingPDF"
+      class="mb-3 rounded-xl overflow-hidden border border-cyan-500/30 bg-cyan-950/20"
+    >
+      <div class="px-4 py-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-cyan-200 flex items-center gap-2 min-w-0">
+            <span class="w-3.5 h-3.5 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin inline-block flex-shrink-0"></span>
+            <span class="truncate">{{ exportProgress || '导出中...' }}</span>
+          </span>
+          <span class="text-sm text-cyan-300 font-mono font-bold flex-shrink-0 ml-2">{{ exportPercent }}%</span>
+        </div>
+        <div class="h-2.5 rounded-full bg-cyan-900/40 overflow-hidden">
+          <div
+            class="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500 ease-out"
+            :style="{ width: exportPercent + '%' }"
+          ></div>
+        </div>
       </div>
     </div>
 
@@ -1356,6 +1725,9 @@ onMounted(() => {
     >
       {{ notification.message }}
     </div>
+
+    <!-- ---- 新增：AI 设置面板 ---- -->
+    <AISettingsPanel :show="showAISettings" @close="handleCloseAISettings" />
   </div>
 </template>
 
