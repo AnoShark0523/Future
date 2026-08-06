@@ -1270,6 +1270,250 @@ async function extractEmbeddedResumeData(file: File): Promise<{ data: ResumeData
   return null
 }
 
+// ==================== 外部 PDF 兼容增强（新增代码，不修改原有逻辑） ====================
+
+/**
+ * 检测文本是否可能是乱码
+ * 判断依据：替换字符(\uFFFD)占比、不可见字符占比、可读字符占比过低等
+ * 用于检测 pdfjs 因缺少 cMap 或字体编码问题导致的乱码文本
+ */
+function isLikelyGarbled(text: string): boolean {
+  if (!text || text.trim().length === 0) return true
+  const len = text.length
+  let replacementCount = 0
+  let nonPrintableCount = 0
+  let readableCount = 0
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!
+    if (code === 0xFFFD) replacementCount++
+    if (code < 0x20 && code !== 0x0A && code !== 0x0D && code !== 0x09) nonPrintableCount++
+    if ((code >= 0x4E00 && code <= 0x9FFF) || // CJK 统一汉字
+        (code >= 0x41 && code <= 0x5A) ||   // A-Z
+        (code >= 0x61 && code <= 0x7A) ||   // a-z
+        (code >= 0x30 && code <= 0x39))      // 0-9
+      readableCount++
+  }
+  // 替换字符占比 > 5%
+  if (replacementCount / len > 0.05) return true
+  // 不可见字符占比 > 30%
+  if (nonPrintableCount / len > 0.3) return true
+  // 完全没有可读字符
+  if (readableCount === 0) return true
+  return false
+}
+
+/**
+ * 使用多种 pdfjs 配置尝试加载 PDF 文档
+ * 兼容加密 PDF、特殊编码、缺少 cMap 等各种外部 PDF 场景
+ * 每种配置使用独立的 ArrayBuffer 副本，避免 transfer/detach 问题
+ */
+async function loadPDFDocumentRobust(arrayBuffer: ArrayBuffer): Promise<any | null> {
+  const pdfjs = await loadPdfjs()
+
+  const configs = [
+    // 配置1: 完整配置 + useSystemFonts + 不禁用流（兼容性最好）
+    {
+      data: arrayBuffer.slice(0),
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: '/standard_fonts/',
+      useSystemFonts: true,
+      disableAutoFetch: false,
+      disableStream: false,
+    },
+    // 配置2: 仅 cMap + useSystemFonts
+    {
+      data: arrayBuffer.slice(0),
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+      useSystemFonts: true,
+    },
+    // 配置3: 空密码（处理加密 PDF）
+    {
+      data: arrayBuffer.slice(0),
+      password: '',
+      cMapUrl: '/cmaps/',
+      cMapPacked: true,
+    },
+    // 配置4: useSystemFonts only
+    {
+      data: arrayBuffer.slice(0),
+      useSystemFonts: true,
+    },
+    // 配置5: 最简配置（兜底）
+    {
+      data: arrayBuffer.slice(0),
+    },
+  ]
+
+  for (let i = 0; i < configs.length; i++) {
+    try {
+      const loadingTask = pdfjs.getDocument(configs[i])
+      const pdfDoc = await withTimeout(loadingTask.promise, 25000, `PDF 加载（配置${i + 1}）`)
+      return pdfDoc
+    } catch {
+      // 当前配置失败，尝试下一个
+    }
+  }
+  return null
+}
+
+/**
+ * 增强版 PDF 文本提取
+ * 使用多种 pdfjs 配置尝试提取文本，兼容 Word/WPS/在线简历生成器等外部工具生成的 PDF
+ * 每页独立 try-catch，跳过无法提取的页面而非整体失败
+ */
+async function extractTextFromPDFRobust(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer()
+  const pdfDoc = await loadPDFDocumentRobust(arrayBuffer)
+  if (!pdfDoc) return ''
+
+  const allText: string[] = []
+  for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+    try {
+      const page = await pdfDoc.getPage(pageNum)
+      const textContent = await page.getTextContent()
+
+      // 按行组织文本（与 extractTextFromPDF 相同的逻辑）
+      const lines: Map<number, { text: string; x: number }> = new Map()
+      textContent.items.forEach((item: any) => {
+        if (item.str && item.str.trim()) {
+          const y = Math.round(item.transform[5])
+          const x = item.transform[4]
+          if (lines.has(y)) {
+            const existing = lines.get(y)!
+            if (x < existing.x) {
+              lines.set(y, { text: item.str + ' ' + existing.text, x })
+            } else {
+              existing.text += ' ' + item.str
+            }
+          } else {
+            lines.set(y, { text: item.str, x })
+          }
+        }
+      })
+
+      const sortedLines = Array.from(lines.entries())
+        .sort((a, b) => b[0] - a[0])
+        .map(([, val]) => val.text.trim())
+        .filter(Boolean)
+
+      allText.push(sortedLines.join('\n'))
+    } catch {
+      // 跳过无法提取的页面
+    }
+  }
+
+  try { pdfDoc.destroy() } catch {}
+  return allText.join('\n')
+}
+
+/**
+ * 计算简历数据中已填充的字段数量
+ * 用于判断解析结果质量，决定是否需要尝试其他提取方式
+ */
+function countFilledFields(data: ResumeData): number {
+  let count = 0
+  if (data.personal.name) count++
+  if (data.personal.phone) count++
+  if (data.personal.email) count++
+  if (data.personal.title) count++
+  if (data.personal.gender) count++
+  if (data.personal.birthDate) count++
+  if (data.personal.location) count++
+  if (data.personal.summary) count++
+  if (data.selfEvaluation) count++
+  if (data.education.length) count++
+  if (data.experience.length) count++
+  if (data.skills.length) count++
+  if (data.projects.length) count++
+  return count
+}
+
+/**
+ * 增强版 OCR 识别
+ * 使用多种 pdfjs 配置渲染 PDF 页面为图片，再用 Tesseract.js OCR 识别
+ * 兼容标准 pdfjs 配置无法加载的外部 PDF（扫描件/图片 PDF/加密 PDF 等）
+ */
+async function ocrFromPDFRobust(arrayBuffer: ArrayBuffer, onProgress?: (msg: string) => void): Promise<string> {
+  const pdfDoc = await loadPDFDocumentRobust(arrayBuffer)
+  if (!pdfDoc) {
+    throw new Error('PDF 文件无法加载（所有配置均失败）')
+  }
+
+  const Tesseract = await import('tesseract.js')
+  const allText: string[] = []
+
+  onProgress?.('正在加载 OCR 引擎和中英文语言包...')
+  const worker = await Tesseract.createWorker(['chi_sim', 'eng'], 1, {
+    logger: m => {
+      if (m.status === 'recognizing text') {
+        onProgress?.(`OCR 识别中: ${Math.round(m.progress * 100)}%`)
+      } else if (m.status === 'loading language traineddata') {
+        onProgress?.('正在加载语言模型（约20MB，请耐心等待）...')
+      } else if (m.status === 'initializing api') {
+        onProgress?.('正在初始化 OCR 引擎...')
+      }
+    },
+    errorHandler: err => {
+      console.error('OCR Worker错误:', err)
+    }
+  })
+
+  await worker.setParameters({
+    tessedit_pageseg_mode: '6',
+    preserve_interword_spaces: '1',
+    user_defined_dpi: '300',
+  })
+
+  for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+    onProgress?.(`正在渲染第 ${pageNum}/${pdfDoc.numPages} 页（高清模式）...`)
+    try {
+      const page = await pdfDoc.getPage(pageNum)
+      const scale = 3
+      const viewport = page.getViewport({ scale })
+
+      const canvas = document.createElement('canvas')
+      const context = canvas.getContext('2d')!
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+
+      // 先填充白色背景，避免透明背景导致 OCR 混乱
+      context.fillStyle = 'white'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise
+
+      // 图像预处理：灰度化 + 对比度增强 + 二值化
+      onProgress?.(`正在预处理第 ${pageNum}/${pdfDoc.numPages} 页图像...`)
+      preprocessImage(canvas)
+
+      const imageBlob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob(blob => resolve(blob!), 'image/png')
+      })
+
+      onProgress?.(`正在识别第 ${pageNum}/${pdfDoc.numPages} 页...`)
+      const result = await worker.recognize(imageBlob)
+
+      if (result.data.text && result.data.text.trim()) {
+        const cleaned = cleanOcrText(result.data.text)
+        if (cleaned.length > 5) {
+          allText.push(cleaned)
+        }
+      }
+    } catch {
+      // 跳过无法渲染的页面
+    }
+  }
+
+  await worker.terminate()
+  try { pdfDoc.destroy() } catch {}
+  return allText.join('\n\n')
+}
+
 /**
  * 从 PDF 文件导入简历数据
  * 导入策略（按顺序尝试）：
@@ -1357,12 +1601,82 @@ export async function importResumeFromPDF(
     }
   }
 
+  // ---- 新增：乱码检测与增强提取（不修改原有逻辑）----
+  // 当标准提取返回乱码时（常见于外部 PDF 缺少 cMap 或字体编码问题），
+  // 尝试多种 pdfjs 配置重新提取，可能获得可读文本
+  if (text && text.trim().length >= 10 && isLikelyGarbled(text)) {
+    onProgress?.('检测到文本可能乱码，正在尝试增强提取（兼容外部 PDF）...')
+    try {
+      const robustText = await extractTextFromPDFRobust(file)
+      if (robustText && robustText.trim().length >= 10 && !isLikelyGarbled(robustText)) {
+        text = robustText
+      }
+    } catch {
+      // 增强提取失败，使用原始文本
+    }
+  }
+
   // Step 2b: 没有找到嵌入数据，走智能文本解析
   if (text && text.trim().length >= 10) {
     // 成功提取到文本，进行智能解析
     onProgress?.('正在智能解析简历信息...')
     const data = parseResumeFromText(text)
     return { data, rawText: text, method: 'text' }
+  }
+
+  // ---- 新增：增强文本提取 + OCR 兜底（兼容外部 PDF，不修改原有逻辑）----
+  // 当标准文本提取完全失败时，依次尝试：增强文本提取 → 增强 OCR
+  // 覆盖外部 PDF 因加密、特殊编码、缺 cMap 等导致标准 pdfjs 配置失败的场景
+  if (!text || text.trim().length < 10) {
+    // 尝试增强文本提取（多种 pdfjs 配置）
+    onProgress?.('标准文本提取失败，正在尝试增强提取（兼容外部 PDF）...')
+    try {
+      const robustText = await extractTextFromPDFRobust(file)
+      if (robustText && robustText.trim().length >= 10) {
+        // 检查是否有嵌入数据
+        const embeddedFromText = extractEmbeddedDataFromText(robustText)
+        if (embeddedFromText) {
+          return {
+            data: embeddedFromText.data,
+            rawText: '[从 PDF 文本中精确恢复]',
+            method: 'metadata',
+            templateId: embeddedFromText.templateId
+          }
+        }
+        // 非乱码文本才进行智能解析
+        if (!isLikelyGarbled(robustText)) {
+          onProgress?.('正在智能解析简历信息...')
+          const data = parseResumeFromText(robustText)
+          const filledCount = countFilledFields(data)
+          if (filledCount >= 3) {
+            return { data, rawText: robustText, method: 'text' }
+          }
+        }
+        // 解析结果不足，保留文本供后续 OCR 比对
+        text = robustText
+      }
+    } catch {
+      // 增强文本提取失败
+    }
+  }
+
+  // ---- 新增：增强 OCR 识别（兼容外部 PDF）----
+  // 当文本提取失败或返回乱码时，使用多种 pdfjs 配置渲染 PDF 并 OCR
+  if (!text || text.trim().length < 10 || isLikelyGarbled(text)) {
+    onProgress?.('正在尝试增强 OCR 识别（兼容外部 PDF）...')
+    try {
+      const robustBuffer = await file.arrayBuffer()
+      const robustOcrText = await ocrFromPDFRobust(robustBuffer, (msg) => {
+        onProgress?.(msg)
+      })
+      if (robustOcrText && robustOcrText.trim().length >= 10) {
+        onProgress?.('OCR 识别完成，正在智能解析...')
+        const data = parseResumeFromText(robustOcrText)
+        return { data, rawText: robustOcrText, method: 'ocr' }
+      }
+    } catch {
+      // 增强 OCR 失败，继续走标准 OCR（Step 3）
+    }
   }
 
   // Step 3: PDF 无文本内容，自动启动 OCR 识别
