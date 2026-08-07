@@ -17,8 +17,6 @@ import {
 } from '@/utils/resumeTemplates'
 import { importResumeFromPDF, ocrFromPDF, parseResumeFromText, extractTextFromPDF } from '@/utils/pdfImport'
 import { exportResumeToPDF } from '@/utils/pdfExport'
-import { extractTextFromWord } from '@/utils/wordImport'
-import { exportResumeToWord, downloadWordBlob } from '@/utils/wordExport'
 import {
   resumeTemplateStyles,
   resumeTemplateCategories,
@@ -117,11 +115,6 @@ const aiExportProgress = ref('')
 const aiExportStep = ref(0)
 const aiExportPercent = ref(0)
 const aiExportEnabled = ref(canAIExport())
-
-// ---- 新增：Word 导入导出状态 ----
-const importingWord = ref(false)
-const wordImportProgress = ref('')
-const exportingWord = ref(false)
 
 // ==================== 计算属性 ====================
 
@@ -730,130 +723,6 @@ const handleAIExportPDF = async () => {
   }
 }
 
-// ---- 新增：AI 智能导入 Word ----
-// 流程：mammoth 提取 Word 文本 → AI 大模型解析为结构化数据
-const handleAIImportWord = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-
-  if (!hasApiKey()) {
-    error('请先点击"AI设置"按钮，配置硅基流动 API Key')
-    input.value = ''
-    return
-  }
-
-  if (file.size > 10 * 1024 * 1024) {
-    error('Word 文件大小不能超过 10MB')
-    input.value = ''
-    return
-  }
-
-  importingWord.value = true
-  wordImportProgress.value = '正在提取 Word 文本...'
-
-  try {
-    // Step 1: 提取 Word 文本
-    const text = await extractTextFromWord(file)
-
-    if (!text || text.trim().length < 10) {
-      error('Word 文档无法提取文本内容，请确认文件有效')
-      return
-    }
-
-    // Step 2: 调用 AI 解析（复用现有 AI 导入逻辑）
-    wordImportProgress.value = '正在调用 AI 大模型解析简历...'
-    const data = await parseResumeWithAIRobust(text, (msg) => {
-      wordImportProgress.value = msg
-    })
-
-    // Step 3: 应用解析结果
-    resumeData.value = data
-
-    let filledCount = 0
-    if (data.personal.name) filledCount++
-    if (data.personal.phone) filledCount++
-    if (data.personal.email) filledCount++
-    if (data.personal.title) filledCount++
-    if (data.education.length) filledCount++
-    if (data.experience.length) filledCount++
-    if (data.projects.length) filledCount++
-    if (data.skills.length) filledCount++
-
-    success(`AI 智能导入 Word 成功！已提取 ${filledCount} 项信息`)
-  } catch (err) {
-    console.error('Word 导入失败:', err)
-    const msg = err instanceof Error ? err.message : '未知错误'
-    error(`Word 导入失败：${msg}`)
-  } finally {
-    importingWord.value = false
-    wordImportProgress.value = ''
-    input.value = ''
-  }
-}
-
-// ---- 新增：AI 智能导出 Word ----
-// 流程：AI 优化内容 → docx 库生成 Word 文档 → 下载
-const handleAIExportWord = async () => {
-  if (!hasContent.value) return
-
-  if (!hasApiKey()) {
-    error('请先点击"AI设置"按钮，配置硅基流动 API Key')
-    return
-  }
-
-  exportingWord.value = true
-  const t0 = Date.now()
-
-  try {
-    // Step 1: AI 优化简历内容
-    const result = await optimizeResumeWithAI(resumeData.value, {
-      polishContent: true,
-      onProgress: (msg) => {
-        const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-        console.info(`[Word Export ${elapsed}s] ${msg}`)
-      }
-    })
-
-    // Step 2: 生成 Word 文档
-    const blob = await exportResumeToWord(result.optimizedData)
-
-    // Step 3: 下载
-    downloadWordBlob(blob, `${resumeData.value.personal.name || '简历'}_AI优化.docx`)
-
-    const totalTime = ((Date.now() - t0) / 1000).toFixed(1)
-    let msg = `AI 智能导出 Word 成功！耗时 ${totalTime}s`
-    if (result.suggestions.length > 0) {
-      msg += `，优化了 ${result.suggestions.length} 项内容`
-    }
-    success(msg)
-  } catch (err) {
-    console.error('Word 导出失败:', err)
-    const msg = err instanceof Error ? err.message : '未知错误'
-    error(`Word 导出失败：${msg}`)
-  } finally {
-    exportingWord.value = false
-  }
-}
-
-// ---- 新增：普通导出 Word（不走 AI 优化，直接生成） ----
-const handleExportWord = async () => {
-  if (!hasContent.value) return
-
-  exportingWord.value = true
-  try {
-    const blob = await exportResumeToWord(resumeData.value)
-    downloadWordBlob(blob, `${resumeData.value.personal.name || '简历'}.docx`)
-    success('Word 导出成功！')
-  } catch (err) {
-    console.error('Word 导出失败:', err)
-    const msg = err instanceof Error ? err.message : '未知错误'
-    error(`Word 导出失败：${msg}`)
-  } finally {
-    exportingWord.value = false
-  }
-}
-
 // 导出 PDF（html2canvas + jsPDF，生成真实 PDF 文件，中文不乱码，嵌入数据可导入恢复）
 const handleExportPDF = async () => {
   if (!hasContent.value) return
@@ -1204,21 +1073,6 @@ onMounted(() => {
           <input type="file" accept=".pdf" @change="handleAIImportPDF" class="hidden" :disabled="aiImporting" />
         </label>
 
-        <!-- ---- 新增：AI 智能导入 Word ---- -->
-        <label
-          class="px-4 py-2 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 border border-emerald-500/40 transition-colors flex items-center gap-2 text-sm cursor-pointer disabled:opacity-40"
-          :class="{ 'pointer-events-none opacity-50': importingWord }"
-          :title="aiImportEnabled ? 'AI 智能导入 Word 文档，自动提取所有字段' : '请先点击右侧 AI设置 配置 API Key'"
-        >
-          <FileText v-if="!importingWord" class="w-4 h-4" />
-          <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-          </svg>
-          {{ importingWord ? (wordImportProgress || '导入中...') : 'AI导入Word' }}
-          <input type="file" accept=".docx,.doc" @change="handleAIImportWord" class="hidden" :disabled="importingWord" />
-        </label>
-
         <!-- PDF 导入照片提醒 -->
         <span class="text-xs text-amber-400/80 flex items-center gap-1 ml-1" title="PDF 格式限制，照片需手动上传">
           <Info class="w-3.5 h-3.5" />
@@ -1281,30 +1135,6 @@ onMounted(() => {
           <Sparkles v-if="!aiExporting" class="w-4 h-4 flex-shrink-0" />
           <span v-else class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block flex-shrink-0"></span>
           {{ aiExporting ? 'AI优化中...' : 'AI智能导出' }}
-        </button>
-
-        <!-- 导出 Word（普通，直接生成格式化 Word 文档） -->
-        <button
-          @click="handleExportWord"
-          :disabled="!hasContent || exportingWord"
-          class="px-4 py-2 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/35 text-emerald-300 border border-emerald-500/40 transition-colors flex items-center gap-2 text-sm whitespace-nowrap disabled:opacity-40"
-          title="将简历导出为 Word 文档，可在 Word/WPS 中编辑"
-        >
-          <FileText v-if="!exportingWord" class="w-4 h-4 flex-shrink-0" />
-          <span v-else class="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin inline-block flex-shrink-0"></span>
-          {{ exportingWord ? '导出中...' : '导出Word' }}
-        </button>
-
-        <!-- AI 智能导出 Word（AI优化内容 + 生成 Word 文档） -->
-        <button
-          @click="handleAIExportWord"
-          :disabled="!hasContent || exportingWord"
-          class="gradient-btn !py-2 !px-4 disabled:opacity-40 flex items-center gap-2 text-sm whitespace-nowrap !from-emerald-600 !to-teal-600"
-          :title="aiExportEnabled ? 'AI 自动优化文案后导出 Word，内容更专业' : '请先配置 AI 设置'"
-        >
-          <Sparkles v-if="!exportingWord" class="w-4 h-4 flex-shrink-0" />
-          <span v-else class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block flex-shrink-0"></span>
-          {{ exportingWord ? 'AI优化中...' : 'AI导出Word' }}
         </button>
 
         <!-- 打印预览（浏览器打印，视觉保真） -->
