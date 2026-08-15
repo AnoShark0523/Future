@@ -22,6 +22,7 @@ const EncoderDecoder = () => import('@/views/EncoderDecoder.vue')
 const RegexTester = () => import('@/views/RegexTester.vue')
 const UUIDGenerator = () => import('@/views/UUIDGenerator.vue')
 const CronGenerator = () => import('@/views/CronGenerator.vue')
+const ReactionTest = () => import('@/views/ReactionTest.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -112,6 +113,11 @@ const router = createRouter({
       path: '/color-converter',
       name: 'color-converter',
       component: ColorConverter
+    },
+    {
+      path: '/reaction-test',
+      name: 'reaction-test',
+      component: ReactionTest
     }
   ]
 })

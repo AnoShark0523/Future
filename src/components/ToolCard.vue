@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import { FileText, Image, Braces, Code, Key, GitCompare, Clock, QrCode, Globe, Shield, Palette, Keyboard, Briefcase, Regex, Fingerprint, Timer } from 'lucide-vue-next'
+import { FileText, Image, Braces, Code, Key, GitCompare, Clock, QrCode, Globe, Shield, Palette, Keyboard, Briefcase, Regex, Fingerprint, Timer, Zap } from 'lucide-vue-next'
 
 interface Props {
   id: string
@@ -28,7 +28,8 @@ const iconComponents = {
   Briefcase,
   Regex,
   Fingerprint,
-  Timer
+  Timer,
+  Zap
 }
 
 const getIconComponent = () => {

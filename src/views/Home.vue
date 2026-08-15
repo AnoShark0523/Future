@@ -120,6 +120,13 @@ const tools = ref([
     description: 'HEX/RGB/HSL/CMYK格式互转，实时预览和颜色选择器',
     icon: 'Palette',
     color: 'from-pink-500 to-rose-500'
+  },
+  {
+    id: 'reaction-test',
+    name: '快速反应力测试',
+    description: '视觉反应速度测试，毫秒级精度，多轮统计与等级评定',
+    icon: 'Zap',
+    color: 'from-amber-500 to-red-500'
   }
 ])
 
